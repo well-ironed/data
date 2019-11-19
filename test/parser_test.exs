@@ -9,14 +9,14 @@ defmodule Data.ParserTest do
     assert Parser.new([]) == {:ok, %Parser{fields: []}}
   end
 
-  test "an empty parser evaluated on an empty map returns empty map" do
+  test "an empty parser ran on an empty map returns empty map" do
     {:ok, parser} = Parser.new([])
-    assert Parser.eval(parser, %{}) == {:ok, %{}}
+    assert Parser.run(parser, %{}) == {:ok, %{}}
   end
 
-  test "an empty parser evaluated on a map returns empty map" do
+  test "an empty parser ran on a map returns empty map" do
     {:ok, parser} = Parser.new([])
-    assert Parser.eval(parser, %{a: :b, c: :d}) == {:ok, %{}}
+    assert Parser.run(parser, %{a: :b, c: :d}) == {:ok, %{}}
   end
 
   test "a parser with one required field can be created" do
@@ -34,25 +34,25 @@ defmodule Data.ParserTest do
               }}
   end
 
-  test "a parser with required field fails evaluation if field doesn't exist" do
+  test "a parser with required field fails if field doesn't exist" do
     {:ok, parser} = Parser.new([{:count, &integer/1}])
-    assert {:error, error} = Parser.eval(parser, %{})
+    assert {:error, error} = Parser.run(parser, %{})
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_found
     assert Error.details(error) == %{field: :count}
   end
 
-  test "a parser with required field fails evaluation if the field's parser fails" do
+  test "a parser with required field fails if the field's parser fails" do
     {:ok, parser} = Parser.new([{:count, &integer/1}])
-    assert {:error, error} = Parser.eval(parser, %{count: "123"})
+    assert {:error, error} = Parser.run(parser, %{count: "123"})
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
     assert Error.details(error) == %{field: :count}
   end
 
-  test "a parser with required field passes evaluation if field's parser passes" do
+  test "a parser with required field passes if field's parser passes" do
     {:ok, parser} = Parser.new([{:count, &integer/1}])
-    assert Parser.eval(parser, %{count: 123}) == {:ok, %{count: 123}}
+    assert Parser.run(parser, %{count: 123}) == {:ok, %{count: 123}}
   end
 
   test "a parser with optional field can be created" do
@@ -70,19 +70,19 @@ defmodule Data.ParserTest do
               }}
   end
 
-  test "a parser with optional field passes evaluation with nothing if field doesn't exist" do
+  test "a parser with optional field passes with nothing if field doesn't exist" do
     {:ok, parser} = Parser.new([{:height, &integer/1, optional: true}])
-    assert Parser.eval(parser, %{}) == {:ok, %{height: Maybe.nothing()}}
+    assert Parser.run(parser, %{}) == {:ok, %{height: Maybe.nothing()}}
   end
 
-  test "a parser with optional field passes evaluation with just if field's parser passes" do
+  test "a parser with optional field passes with just if field's parser passes" do
     {:ok, parser} = Parser.new([{:height, &integer/1, optional: true}])
-    assert Parser.eval(parser, %{height: 123}) == {:ok, %{height: Maybe.just(123)}}
+    assert Parser.run(parser, %{height: 123}) == {:ok, %{height: Maybe.just(123)}}
   end
 
-  test "a parser with optional field fails evaluation if the field's parser fails" do
+  test "a parser with optional field fails if the field's parser fails" do
     {:ok, parser} = Parser.new([{:height, &integer/1, optional: true}])
-    assert {:error, error} = Parser.eval(parser, %{height: "123"})
+    assert {:error, error} = Parser.run(parser, %{height: "123"})
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
     assert Error.details(error) == %{field: :height}
@@ -103,20 +103,20 @@ defmodule Data.ParserTest do
               }}
   end
 
-  test "a parser with field with default value passes evaluation with that value " <>
+  test "a parser with field with default value passes with that value " <>
          "if field doesn't exist" do
     {:ok, parser} = Parser.new([{:age, &integer/1, default: 21}])
-    assert Parser.eval(parser, %{}) == {:ok, %{age: 21}}
+    assert Parser.run(parser, %{}) == {:ok, %{age: 21}}
   end
 
-  test "a parser with field with default value passes evaluation if field's parser passes" do
+  test "a parser with field with default value passes if field's parser passes" do
     {:ok, parser} = Parser.new([{:age, &integer/1, default: 21}])
-    assert Parser.eval(parser, %{age: 100}) == {:ok, %{age: 100}}
+    assert Parser.run(parser, %{age: 100}) == {:ok, %{age: 100}}
   end
 
-  test "a parser with field with default value fails evaluation if field's parser fails" do
+  test "a parser with field with default value fails if field's parser fails" do
     {:ok, parser} = Parser.new([{:age, &integer/1, default: 21}])
-    assert {:error, error} = Parser.eval(parser, %{age: "123"})
+    assert {:error, error} = Parser.run(parser, %{age: "123"})
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
     assert Error.details(error) == %{field: :age}

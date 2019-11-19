@@ -32,10 +32,10 @@ defmodule Data.Parser do
     Error.domain(:not_a_list) |> Result.error()
   end
 
-  @spec eval(t(any, any), map) :: Result.t(map, Error.t())
-  def eval(%__MODULE__{fields: fields}, input) do
+  @spec run(t(any, any), map) :: Result.t(map, Error.t())
+  def run(%__MODULE__{fields: fields}, input) do
     Result.ok([])
-    |> Result.fold(fields, &eval_field(&1, &2, input))
+    |> Result.fold(fields, &run_for_field(&1, &2, input))
     |> Result.map(&Enum.into(&1, %{}))
   end
 
@@ -67,7 +67,7 @@ defmodule Data.Parser do
     Error.domain(:invalid_field_spec, %{spec: other}) |> Result.error()
   end
 
-  defp eval_field(%Field{name: name} = field, acc, input) do
+  defp run_for_field(%Field{name: name} = field, acc, input) do
     case Map.fetch(input, name) do
       {:ok, value} ->
         existing_field(field, acc, value)
