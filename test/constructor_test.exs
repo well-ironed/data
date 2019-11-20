@@ -3,7 +3,7 @@ defmodule Data.ConstructorTest do
 
   alias Data.Constructor
   alias FE.Maybe
-  import Data.BuiltIn
+  import Data.Parser.BuiltIn
 
   test "an empty constructor can be created without any fields" do
     assert Constructor.new([]) == {:ok, %Constructor{fields: []}}

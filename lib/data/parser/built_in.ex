@@ -1,4 +1,4 @@
-defmodule Data.BuiltIn do
+defmodule Data.Parser.BuiltIn do
   alias Error
   alias FE.Result
 

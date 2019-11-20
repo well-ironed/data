@@ -1,7 +1,7 @@
-defmodule Data.BuiltInTest do
+defmodule Data.Parser.BuiltInTest do
   use ExUnit.Case, async: true
 
-  import Data.BuiltIn
+  import Data.Parser.BuiltIn
   alias Error
 
   describe "integer/1" do
