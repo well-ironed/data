@@ -42,4 +42,64 @@ defmodule Data.BuiltIn do
         when a: var, b: var
   def nonempty_list([], _), do: Error.domain(:empty_list) |> Result.error()
   def nonempty_list(xs, p), do: list(xs, p)
+
+  @spec boolean(boolean()) :: Result.t(boolean(), Error.t())
+  def boolean(bool) when is_boolean(bool) do
+    Result.ok(bool)
+  end
+
+  def boolean(_) do
+    Error.domain(:not_a_boolean) |> Result.error()
+  end
+
+  @spec date(Date.t() | String.t()) :: Result.t(Date.t(), Error.t())
+  def date(date) do
+    case date do
+      %Date{} ->
+        Result.ok(date)
+
+      string when is_binary(string) ->
+        case Date.from_iso8601(string) do
+          {:ok, d} -> Result.ok(d)
+          {:error, reason} -> Error.domain(reason) |> Result.error()
+        end
+
+      _other ->
+        Error.domain(:not_a_date) |> Result.error()
+    end
+  end
+
+  @spec datetime(DateTime.t() | String.t()) :: Result.t(DateTime.t(), Error.t())
+  def datetime(datetime) do
+    case datetime do
+      %DateTime{} ->
+        Result.ok(datetime)
+
+      string when is_binary(string) ->
+        case DateTime.from_iso8601(datetime) do
+          {:ok, dt, _offset} -> Result.ok(dt)
+          {:error, reason} -> Error.domain(reason) |> Result.error()
+        end
+
+      _other ->
+        Error.domain(:not_a_datetime) |> Result.error()
+    end
+  end
+
+  @spec naive_datetime(NaiveDateTime.t() | String.t()) :: Result.t(NaiveDateTime.t(), Error.t())
+  def naive_datetime(naive_datetime) do
+    case naive_datetime do
+      %NaiveDateTime{} ->
+        Result.ok(naive_datetime)
+
+      string when is_binary(string) ->
+        case NaiveDateTime.from_iso8601(naive_datetime) do
+          {:ok, ndt} -> Result.ok(ndt)
+          {:error, reason} -> Error.domain(reason) |> Result.error()
+        end
+
+      _other ->
+        Error.domain(:not_a_naive_datetime) |> Result.error()
+    end
+  end
 end
