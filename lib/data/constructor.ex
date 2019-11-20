@@ -5,17 +5,18 @@ defmodule Data.Constructor do
     defstruct [:name, :parser, :optional, :default]
   end
 
+  alias Data.Parser
   alias Error
   alias FE.{Maybe, Result}
 
   @type field_name :: atom()
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
   @type field_spec(a, b) ::
-          {field_name(), parser(a, b)} | {field_name(), parser(a, b), field_opts(b)}
-  @type parser(a, b) :: (a -> Result.t(b, Error.t()))
+          {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(b)}
+
   @opaque field(a, b) :: %Field{
             name: field_name(),
-            parser: parser(a, b),
+            parser: Parser.t(a, b),
             optional: boolean(),
             default: Maybe.t(b)
           }
