@@ -20,7 +20,7 @@ defmodule Data.BuiltIn do
     Error.domain(:not_a_string) |> Result.error()
   end
 
-  @spec list([a], Data.Parser.parser(a, b)) :: Result.t(b, Error.t()) when a: var, b: var
+  @spec list([a], Data.Parser.t(a, b)) :: Result.t(b, Error.t()) when a: var, b: var
   def list(xs, p) when is_list(xs) do
     Result.fold(Result.ok([]), xs, fn el, acc ->
       case p.(el) do
@@ -38,7 +38,7 @@ defmodule Data.BuiltIn do
 
   def list(_, _), do: Error.domain(:not_a_list) |> Result.error()
 
-  @spec nonempty_list([a], Data.Parser.parser(a, b)) :: Result.t(b, Error.t())
+  @spec nonempty_list([a], Data.Parser.t(a, b)) :: Result.t(b, Error.t())
         when a: var, b: var
   def nonempty_list([], _), do: Error.domain(:empty_list) |> Result.error()
   def nonempty_list(xs, p), do: list(xs, p)
