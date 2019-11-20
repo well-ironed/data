@@ -5,12 +5,12 @@ defmodule Data.MixProject do
     [
       app: :data,
       deps: deps(),
-      description: "Elixir data structures extensions",
+      description: "Extensions to Elixir data structures",
       docs: docs(),
       elixir: "~> 1.7",
       package: package(),
       start_permanent: Mix.env() == :prod,
-      version: "0.1.0"
+      version: "0.1.1"
     ]
   end
 

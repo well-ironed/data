@@ -1,3 +1,3 @@
 # Data
 
-Elixir data structures extensions
+Extensions to Elixir data structures
