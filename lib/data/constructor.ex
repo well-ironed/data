@@ -1,4 +1,4 @@
-defmodule Data.Parser do
+defmodule Data.Constructor do
   defstruct [:fields]
 
   defmodule Field do
