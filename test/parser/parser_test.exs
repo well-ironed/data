@@ -14,6 +14,11 @@ defmodule Data.ParserTest do
       parser = Parser.predicate(fn x -> x > 2 end, error)
       assert parser.(1) == {:error, error}
     end
+
+    test "if second argument is 1-arity fun, the failed predicate argument is passed to it on error" do
+      parser = Parser.predicate(fn x -> x > 2 end, fn x -> {:bad_arg, x} end)
+      assert parser.(1) == {:error, {:bad_arg, 1}}
+    end
   end
 
   describe "one_of/2" do
