@@ -9,6 +9,7 @@ defmodule Data.Constructor do
   alias Error
   alias FE.{Maybe, Result}
 
+  @type input :: map | Keyword.t()
   @type field_name :: atom()
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
   @type field_spec(a, b) ::
@@ -33,11 +34,22 @@ defmodule Data.Constructor do
     Error.domain(:not_a_list) |> Result.error()
   end
 
-  @spec run(t(any, any), map) :: Result.t(map, Error.t())
-  def run(%__MODULE__{fields: fields}, input) do
+  @spec run(t(any, any), input) :: Result.t(map, Error.t())
+  def run(%__MODULE__{} = constructor, input) when is_list(input) do
+    case Keyword.keyword?(input) do
+      true -> run(constructor, Enum.into(input, %{}))
+      false -> Error.domain(:invalid_input, %{input: input}) |> Result.error()
+    end
+  end
+
+  def run(%__MODULE__{fields: fields}, input) when is_map(input) do
     Result.ok([])
     |> Result.fold(fields, &run_for_field(&1, &2, input))
     |> Result.map(&Enum.into(&1, %{}))
+  end
+
+  def run(_constructor, other) do
+    Error.domain(:invalid_input, %{input: other}) |> Result.error()
   end
 
   defp parse_field_spec({field_name, parser}, acc) do
