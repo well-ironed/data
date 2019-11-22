@@ -43,7 +43,7 @@ defmodule Data.ConstructorTest do
 
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :field_not_found_in_input
-    assert Error.details(error) == %{field: :count}
+    assert Error.details(error) == %{field: :count, input: %{}}
   end
 
   test "a constructor with required field fails if the field's parser fails" do
@@ -52,7 +52,7 @@ defmodule Data.ConstructorTest do
     assert {:error, ^error} = Constructor.run(constructor, count: "123")
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
-    assert Error.details(error) == %{field: :count}
+    assert Error.details(error) == %{field: :count, input: %{count: "123"}}
   end
 
   test "a constructor with required field passes if field's parser passes" do
@@ -94,7 +94,7 @@ defmodule Data.ConstructorTest do
     assert {:error, ^error} = Constructor.run(constructor, height: "123")
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
-    assert Error.details(error) == %{field: :height}
+    assert Error.details(error) == %{field: :height, input: %{height: "123"}}
   end
 
   test "a constructor with field with default value can be created" do
@@ -131,7 +131,7 @@ defmodule Data.ConstructorTest do
     assert {:error, ^error} = Constructor.run(constructor, age: "123")
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :not_an_integer
-    assert Error.details(error) == %{field: :age}
+    assert Error.details(error) == %{field: :age, input: %{age: "123"}}
   end
 
   test "a constructor cannot be created with an invalid field spec" do

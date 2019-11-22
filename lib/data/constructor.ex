@@ -83,14 +83,14 @@ defmodule Data.Constructor do
   defp run_for_field(%Field{name: name} = field, acc, input) do
     case Map.fetch(input, name) do
       {:ok, value} ->
-        existing_field(field, acc, value)
+        existing_field(field, acc, value, input)
 
       :error ->
-        missing_field(field, acc)
+        missing_field(field, acc, input)
     end
   end
 
-  defp existing_field(%Field{name: name, parser: parser, optional: optional}, acc, value) do
+  defp existing_field(%Field{name: name, parser: parser, optional: optional}, acc, value, input) do
     parser.(value)
     |> Result.map(fn parsed_value ->
       case optional do
@@ -98,10 +98,12 @@ defmodule Data.Constructor do
         false -> [{name, parsed_value} | acc]
       end
     end)
-    |> Result.map_error(fn error -> Error.map_details(error, &Map.put(&1, :field, name)) end)
+    |> Result.map_error(fn error ->
+      Error.map_details(error, &Map.merge(&1, %{field: name, input: input}))
+    end)
   end
 
-  defp missing_field(%Field{name: name, optional: optional, default: default}, acc) do
+  defp missing_field(%Field{name: name, optional: optional, default: default}, acc, input) do
     case {optional, default} do
       {true, :nothing} ->
         Result.ok([{name, Maybe.nothing()} | acc])
@@ -110,7 +112,7 @@ defmodule Data.Constructor do
         Result.ok([{name, default_value} | acc])
 
       {false, :nothing} ->
-        Error.domain(:field_not_found_in_input, %{field: name}) |> Result.error()
+        Error.domain(:field_not_found_in_input, %{field: name, input: input}) |> Result.error()
     end
   end
 end
