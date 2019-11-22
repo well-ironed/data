@@ -110,7 +110,7 @@ defmodule Data.Constructor do
         Result.ok([{name, default_value} | acc])
 
       {false, :nothing} ->
-        Error.domain(:not_found, %{field: name}) |> Result.error()
+        Error.domain(:field_not_found_in_input, %{field: name}) |> Result.error()
     end
   end
 end

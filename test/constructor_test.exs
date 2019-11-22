@@ -42,7 +42,7 @@ defmodule Data.ConstructorTest do
     assert {:error, ^error} = Constructor.run(constructor, [])
 
     assert Error.kind(error) == :domain
-    assert Error.reason(error) == :not_found
+    assert Error.reason(error) == :field_not_found_in_input
     assert Error.details(error) == %{field: :count}
   end
 
