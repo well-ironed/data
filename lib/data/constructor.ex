@@ -23,6 +23,14 @@ defmodule Data.Constructor do
           }
   @opaque t(a, b) :: %__MODULE__{fields: [field(a, b)]}
 
+  @spec struct([field_spec(any, any)], module(), input) :: Result.t(struct, Error.t())
+  def struct(field_specs, struct_module, input) do
+    field_specs
+    |> new()
+    |> Result.and_then(&run(&1, input))
+    |> Result.map(&struct(struct_module, &1))
+  end
+
   @spec new([field_spec(a, b)]) :: Result.t(t(a, b), Error.t()) when a: var, b: var
   def new(field_specs) when is_list(field_specs) do
     Result.ok([])

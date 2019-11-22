@@ -154,6 +154,36 @@ defmodule Data.ConstructorTest do
     assert Error.details(error) == %{spec: {:weight, &integer/1, default: 10, optional: true}}
   end
 
+  describe "struct" do
+    defmodule Plant do
+      defstruct [:name, :potted]
+    end
+
+    test "struct creates a new struct" do
+      assert Constructor.struct(
+               [{:name, &string/1}, {:potted, &boolean/1}],
+               Plant,
+               name: "Fir",
+               potted: false
+             ) ==
+               {:ok, %Plant{name: "Fir", potted: false}}
+    end
+
+    test "struct doesn't create a new struct if invalid field spec is passed" do
+      assert {:error, error} = Constructor.struct([:name], Plant, name: "Cactus", potted: true)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :invalid_field_spec
+      assert Error.details(error) == %{spec: :name}
+    end
+
+    test "struct doesn't create a new struct if invalid input is passed" do
+      assert {:error, error} = Constructor.struct([{:name, &string/1}], Plant, potted: true)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :field_not_found_in_input
+      assert Error.details(error) == %{field: :name, input: %{potted: true}}
+    end
+  end
+
   describe "bad input" do
     test "a constructor run on an atom returns invalid input error" do
       {:ok, constructor} = Constructor.new([{:age, &integer/1}])
