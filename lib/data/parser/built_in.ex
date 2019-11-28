@@ -1,72 +1,82 @@
 defmodule Data.Parser.BuiltIn do
   alias Error
   alias FE.Result
+  alias Data.Parser
   alias MapSet, as: Set
 
-  @spec integer(any()) :: Result.t(integer(), any())
-  def integer(int) when is_integer(int) do
-    Result.ok(int)
+  @spec integer() :: Parser.t(integer, Error.t())
+  def integer do
+    fn
+      int when is_integer(int) -> Result.ok(int)
+      _other -> Error.domain(:not_an_integer) |> Result.error()
+    end
   end
 
-  def integer(_other) do
-    Error.domain(:not_an_integer) |> Result.error()
+  @spec string() :: Parser.t(String.t(), Error.t())
+  def string() do
+    fn
+      s when is_binary(s) -> Result.ok(s)
+      _other -> Error.domain(:not_a_string) |> Result.error()
+    end
   end
 
-  @spec string(any()) :: Result.t(String.t(), any())
-  def string(s) when is_binary(s) do
-    Result.ok(s)
+  @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
+  def list(p) do
+    fn
+      xs when is_list(xs) ->
+        Result.fold(Result.ok([]), xs, fn el, acc ->
+          case p.(el) do
+            {:ok, parsed} ->
+              Result.ok([parsed | acc])
+
+            {:error, why} ->
+              why
+              |> Error.map_details(&Map.put(&1, :failed_element, el))
+              |> Result.error()
+          end
+        end)
+        |> Result.map(&Enum.reverse/1)
+
+      _other ->
+        Error.domain(:not_a_list) |> Result.error()
+    end
   end
 
-  def string(_other) do
-    Error.domain(:not_a_string) |> Result.error()
+  @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
+  def nonempty_list(p) do
+    fn
+      [] -> Error.domain(:empty_list) |> Result.error()
+      xs -> list(p).(xs)
+    end
   end
 
-  @spec list([a], Data.Parser.t(a, b)) :: Result.t(b, Error.t()) when a: var, b: var
-  def list(xs, p) when is_list(xs) do
-    Result.fold(Result.ok([]), xs, fn el, acc ->
-      case p.(el) do
-        {:ok, parsed} ->
-          Result.ok([parsed | acc])
+  @spec set(Parser.t(a, Error.t())) :: Parser.t(Set.t(a), Error.t()) when a: var
+  def set(p) do
+    fn
+      %Set{} = set ->
+        set
+        # to work around %Set{} opaqueness violation
+        |> (&apply(Set, :to_list, [&1])).()
+        |> list(p).()
+        |> Result.map(&Set.new/1)
 
-        {:error, why} ->
-          why
-          |> Error.map_details(&Map.put(&1, :failed_element, el))
-          |> Result.error()
-      end
-    end)
-    |> Result.map(&Enum.reverse(&1))
+      _other ->
+        Error.domain(:not_a_set) |> Result.error()
+    end
   end
 
-  def list(_, _), do: Error.domain(:not_a_list) |> Result.error()
-
-  @spec nonempty_list([a], Data.Parser.t(a, b)) :: Result.t(b, Error.t())
-        when a: var, b: var
-  def nonempty_list([], _), do: Error.domain(:empty_list) |> Result.error()
-  def nonempty_list(xs, p), do: list(xs, p)
-
-  @spec set(Set.t(a), Data.Parser.t(a, b)) :: Result.t(b, Error.t()) when a: var, b: var
-  def set(%Set{} = set, p) do
-    set
-    |> Set.to_list()
-    |> list(p)
-    |> Result.map(&Set.new/1)
+  @spec boolean() :: Parser.t(boolean(), Error.t())
+  def boolean do
+    fn
+      bool when is_boolean(bool) -> Result.ok(bool)
+      _other -> Error.domain(:not_a_boolean) |> Result.error()
+    end
   end
 
-  def set(_, _), do: Error.domain(:not_a_set) |> Result.error()
-
-  @spec boolean(boolean()) :: Result.t(boolean(), Error.t())
-  def boolean(bool) when is_boolean(bool) do
-    Result.ok(bool)
-  end
-
-  def boolean(_) do
-    Error.domain(:not_a_boolean) |> Result.error()
-  end
-
-  @spec date(Date.t() | String.t()) :: Result.t(Date.t(), Error.t())
-  def date(date) do
-    case date do
-      %Date{} ->
+  @spec date() :: Parser.t(Date.t(), Error.t())
+  def date do
+    fn
+      %Date{} = date ->
         Result.ok(date)
 
       string when is_binary(string) ->
@@ -80,14 +90,14 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
-  @spec datetime(DateTime.t() | String.t()) :: Result.t(DateTime.t(), Error.t())
-  def datetime(datetime) do
-    case datetime do
-      %DateTime{} ->
+  @spec datetime() :: Parser.t(DateTime.t(), Error.t())
+  def datetime do
+    fn
+      %DateTime{} = datetime ->
         Result.ok(datetime)
 
       string when is_binary(string) ->
-        case DateTime.from_iso8601(datetime) do
+        case DateTime.from_iso8601(string) do
           {:ok, dt, _offset} -> Result.ok(dt)
           {:error, reason} -> Error.domain(reason) |> Result.error()
         end
@@ -97,14 +107,14 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
-  @spec naive_datetime(NaiveDateTime.t() | String.t()) :: Result.t(NaiveDateTime.t(), Error.t())
-  def naive_datetime(naive_datetime) do
-    case naive_datetime do
-      %NaiveDateTime{} ->
+  @spec naive_datetime() :: Parser.t(NaiveDateTime.t(), Error.t())
+  def naive_datetime do
+    fn
+      %NaiveDateTime{} = naive_datetime ->
         Result.ok(naive_datetime)
 
       string when is_binary(string) ->
-        case NaiveDateTime.from_iso8601(naive_datetime) do
+        case NaiveDateTime.from_iso8601(string) do
           {:ok, ndt} -> Result.ok(ndt)
           {:error, reason} -> Error.domain(reason) |> Result.error()
         end

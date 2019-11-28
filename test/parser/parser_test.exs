@@ -37,18 +37,18 @@ defmodule Data.ParserTest do
 
   describe "maybe/1" do
     test "returns parser that is fmapped onto a just value" do
-      parser = Parser.maybe(&Parser.BuiltIn.string/1)
+      parser = Parser.maybe(Parser.BuiltIn.string())
       assert parser.(just("hello")) == {:ok, just("hello")}
     end
 
     test "returns error if parser fails on just value" do
       error = Error.domain(:not_a_string)
-      parser = Parser.maybe(&Parser.BuiltIn.string/1)
+      parser = Parser.maybe(Parser.BuiltIn.string())
       assert parser.(just(0)) == {:error, error}
     end
 
     test "returns nothing successfully if nothing is passed in" do
-      parser = Parser.maybe(&Parser.BuiltIn.string/1)
+      parser = Parser.maybe(Parser.BuiltIn.string())
       assert parser.(nothing()) == {:ok, nothing()}
     end
   end

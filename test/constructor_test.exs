@@ -22,13 +22,13 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with one required field can be created" do
-    assert Constructor.new([{:field, &integer/1}]) ==
+    assert Constructor.new([{:field, integer()}]) ==
              {:ok,
               %Constructor{
                 fields: [
                   %Constructor.Field{
                     name: :field,
-                    parser: &integer/1,
+                    parser: integer(),
                     optional: false,
                     default: Maybe.nothing()
                   }
@@ -37,7 +37,7 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with required field fails if field doesn't exist" do
-    {:ok, constructor} = Constructor.new([{:count, &integer/1}])
+    {:ok, constructor} = Constructor.new([{:count, integer()}])
     assert {:error, error} = Constructor.run(constructor, %{})
     assert {:error, ^error} = Constructor.run(constructor, [])
 
@@ -47,7 +47,7 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with required field fails if the field's parser fails" do
-    {:ok, constructor} = Constructor.new([{:count, &integer/1}])
+    {:ok, constructor} = Constructor.new([{:count, integer()}])
     assert {:error, error} = Constructor.run(constructor, %{count: "123"})
     assert {:error, ^error} = Constructor.run(constructor, count: "123")
     assert Error.kind(error) == :domain
@@ -56,19 +56,19 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with required field passes if field's parser passes" do
-    {:ok, constructor} = Constructor.new([{:count, &integer/1}])
+    {:ok, constructor} = Constructor.new([{:count, integer()}])
     assert Constructor.run(constructor, %{count: 123}) == {:ok, %{count: 123}}
     assert Constructor.run(constructor, count: 123) == {:ok, %{count: 123}}
   end
 
   test "a constructor with optional field can be created" do
-    assert Constructor.new([{:height, &integer/1, optional: true}]) ==
+    assert Constructor.new([{:height, integer(), optional: true}]) ==
              {:ok,
               %Constructor{
                 fields: [
                   %Constructor.Field{
                     name: :height,
-                    parser: &integer/1,
+                    parser: integer(),
                     optional: true,
                     default: Maybe.nothing()
                   }
@@ -77,19 +77,19 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with optional field passes with nothing if field doesn't exist" do
-    {:ok, constructor} = Constructor.new([{:height, &integer/1, optional: true}])
+    {:ok, constructor} = Constructor.new([{:height, integer(), optional: true}])
     assert Constructor.run(constructor, %{}) == {:ok, %{height: Maybe.nothing()}}
     assert Constructor.run(constructor, []) == {:ok, %{height: Maybe.nothing()}}
   end
 
   test "a constructor with optional field passes with just if field's parser passes" do
-    {:ok, constructor} = Constructor.new([{:height, &integer/1, optional: true}])
+    {:ok, constructor} = Constructor.new([{:height, integer(), optional: true}])
     assert Constructor.run(constructor, %{height: 123}) == {:ok, %{height: Maybe.just(123)}}
     assert Constructor.run(constructor, height: 123) == {:ok, %{height: Maybe.just(123)}}
   end
 
   test "a constructor with optional field fails if the field's parser fails" do
-    {:ok, constructor} = Constructor.new([{:height, &integer/1, optional: true}])
+    {:ok, constructor} = Constructor.new([{:height, integer(), optional: true}])
     assert {:error, error} = Constructor.run(constructor, %{height: "123"})
     assert {:error, ^error} = Constructor.run(constructor, height: "123")
     assert Error.kind(error) == :domain
@@ -98,13 +98,13 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with field with default value can be created" do
-    assert Constructor.new([{:age, &integer/1, default: 21}]) ==
+    assert Constructor.new([{:age, integer(), default: 21}]) ==
              {:ok,
               %Constructor{
                 fields: [
                   %Constructor.Field{
                     name: :age,
-                    parser: &integer/1,
+                    parser: integer(),
                     optional: false,
                     default: Maybe.just(21)
                   }
@@ -114,19 +114,19 @@ defmodule Data.ConstructorTest do
 
   test "a constructor with field with default value passes with that value " <>
          "if field doesn't exist" do
-    {:ok, constructor} = Constructor.new([{:age, &integer/1, default: 21}])
+    {:ok, constructor} = Constructor.new([{:age, integer(), default: 21}])
     assert Constructor.run(constructor, %{}) == {:ok, %{age: 21}}
     assert Constructor.run(constructor, []) == {:ok, %{age: 21}}
   end
 
   test "a constructor with field with default value passes if field's parser passes" do
-    {:ok, constructor} = Constructor.new([{:age, &integer/1, default: 21}])
+    {:ok, constructor} = Constructor.new([{:age, integer(), default: 21}])
     assert Constructor.run(constructor, %{age: 100}) == {:ok, %{age: 100}}
     assert Constructor.run(constructor, age: 100) == {:ok, %{age: 100}}
   end
 
   test "a constructor with field with default value fails if field's parser fails" do
-    {:ok, constructor} = Constructor.new([{:age, &integer/1, default: 21}])
+    {:ok, constructor} = Constructor.new([{:age, integer(), default: 21}])
     assert {:error, error} = Constructor.run(constructor, %{age: "123"})
     assert {:error, ^error} = Constructor.run(constructor, age: "123")
     assert Error.kind(error) == :domain
@@ -148,10 +148,10 @@ defmodule Data.ConstructorTest do
   end
 
   test "a constructor with a optional and default value field cannot be created" do
-    assert {:error, error} = Constructor.new([{:weight, &integer/1, default: 10, optional: true}])
+    assert {:error, error} = Constructor.new([{:weight, integer(), default: 10, optional: true}])
     assert Error.kind(error) == :domain
     assert Error.reason(error) == :invalid_field_spec
-    assert Error.details(error) == %{spec: {:weight, &integer/1, default: 10, optional: true}}
+    assert Error.details(error) == %{spec: {:weight, integer(), default: 10, optional: true}}
   end
 
   describe "struct" do
@@ -161,7 +161,7 @@ defmodule Data.ConstructorTest do
 
     test "struct creates a new struct" do
       assert Constructor.struct(
-               [{:name, &string/1}, {:potted, &boolean/1}],
+               [{:name, string()}, {:potted, boolean()}],
                Plant,
                name: "Fir",
                potted: false
@@ -177,7 +177,7 @@ defmodule Data.ConstructorTest do
     end
 
     test "struct doesn't create a new struct if invalid input is passed" do
-      assert {:error, error} = Constructor.struct([{:name, &string/1}], Plant, potted: true)
+      assert {:error, error} = Constructor.struct([{:name, string()}], Plant, potted: true)
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :field_not_found_in_input
       assert Error.details(error) == %{field: :name, input: %{potted: true}}
@@ -186,7 +186,7 @@ defmodule Data.ConstructorTest do
 
   describe "bad input" do
     test "a constructor run on an atom returns invalid input error" do
-      {:ok, constructor} = Constructor.new([{:age, &integer/1}])
+      {:ok, constructor} = Constructor.new([{:age, integer()}])
       assert {:error, error} = Constructor.run(constructor, :xyz)
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :invalid_input
@@ -194,7 +194,7 @@ defmodule Data.ConstructorTest do
     end
 
     test "a constructor run on a non-keyword list returns invalid input error" do
-      {:ok, constructor} = Constructor.new([{:age, &integer/1}])
+      {:ok, constructor} = Constructor.new([{:age, integer()}])
       assert {:error, error} = Constructor.run(constructor, [:x, :y])
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :invalid_input
