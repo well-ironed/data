@@ -3,6 +3,7 @@ defmodule Data.Parser.BuiltInTest do
 
   import Data.Parser.BuiltIn
   alias Error
+  alias MapSet, as: Set
 
   describe "integer/1" do
     test "returns the same integer as passed" do
@@ -73,6 +74,29 @@ defmodule Data.Parser.BuiltInTest do
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :not_a_string
       assert Error.details(error) == %{failed_element: :c}
+    end
+  end
+
+  describe "set/2" do
+    test "successfully parses empty set" do
+      assert set(Set.new(), &string/1) == {:ok, Set.new()}
+    end
+
+    test "successfully parses set where all elements parse" do
+      assert set(Set.new([1, 2, 3]), &integer/1) == {:ok, Set.new([1, 2, 3])}
+    end
+
+    test "returns error when first argument is not a set" do
+      assert {:error, error} = set(:abc, &integer/1)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_set
+    end
+
+    test "returns first failed parse if some elements don't parse" do
+      assert {:error, error} = set(Set.new([1, "2", 3]), &integer/1)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_an_integer
+      assert Error.details(error) == %{failed_element: "2"}
     end
   end
 

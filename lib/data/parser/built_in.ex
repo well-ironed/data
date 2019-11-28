@@ -1,6 +1,7 @@
 defmodule Data.Parser.BuiltIn do
   alias Error
   alias FE.Result
+  alias MapSet, as: Set
 
   @spec integer(any()) :: Result.t(integer(), any())
   def integer(int) when is_integer(int) do
@@ -42,6 +43,16 @@ defmodule Data.Parser.BuiltIn do
         when a: var, b: var
   def nonempty_list([], _), do: Error.domain(:empty_list) |> Result.error()
   def nonempty_list(xs, p), do: list(xs, p)
+
+  @spec set(Set.t(a), Data.Parser.t(a, b)) :: Result.t(b, Error.t()) when a: var, b: var
+  def set(%Set{} = set, p) do
+    set
+    |> Set.to_list()
+    |> list(p)
+    |> Result.map(&Set.new/1)
+  end
+
+  def set(_, _), do: Error.domain(:not_a_set) |> Result.error()
 
   @spec boolean(boolean()) :: Result.t(boolean(), Error.t())
   def boolean(bool) when is_boolean(bool) do
