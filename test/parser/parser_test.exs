@@ -1,5 +1,6 @@
 defmodule Data.ParserTest do
   use ExUnit.Case, async: true
+  doctest Data.Parser
 
   import FE.Maybe, only: [just: 1, nothing: 0]
   alias Data.Parser
@@ -23,16 +24,22 @@ defmodule Data.ParserTest do
   end
 
   describe "one_of/2" do
-    test "returns parser than returns the input value if it's one of the provided values" do
+    test "returns parser that returns the input value if it's one of the provided values" do
       parser = Parser.one_of([:a, :b], Error.domain(:must_be_a_or_b))
       assert parser.(:a) == {:ok, :a}
     end
 
-    test "returns parser than returns the default error if run on a value that's not listed" do
+    test "returns parser that returns the default error if run on a value that's not listed" do
       error = Error.domain(:must_be_a_or_b)
       parser = Parser.one_of([:a, :b], error)
       assert parser.(:c) == {:error, error}
     end
+
+    test "returns parser that maps default error on the input if run on a value that's not listed" do
+      parser = Parser.one_of([:a, :b], fn x -> "bad value: #{inspect x}" end)
+      assert parser.(:c) == {:error, "bad value: :c"}
+    end
+
   end
 
   describe "maybe/1" do

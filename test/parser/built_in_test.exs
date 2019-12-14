@@ -1,5 +1,6 @@
 defmodule Data.Parser.BuiltInTest do
   use ExUnit.Case, async: true
+  doctest Data.Parser.BuiltIn
 
   import Data.Parser.BuiltIn
   alias Error
