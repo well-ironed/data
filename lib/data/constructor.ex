@@ -1,7 +1,53 @@
 defmodule Data.Constructor do
-  defstruct [:fields]
+  @moduledoc """
+  The functions in this module can be used to create `Constructor` parsers.
 
+  `Constructor` parsers are specialized parsers which accept `map`s or
+  `Keyword.t`s as input, and apply sub-parsers to particular fields in the input.
+
+  The sub-parsers are defined using `field_spec`s such as the following:
+
+  1. {:username, Data.Parser.BuiltIn.string()}
+  2. {:birthday, Data.Parser.BuiltIn.date(), optional: true}
+  3. {:country, MyApp.country_parser(), default: "Canada"}
+
+  Parser 1 above says that the input must contain a `:username` field, and the
+  value of that field must parse successfully with `Data.Parser.BuiltIn.string/0`.
+  The output map will contain the key-value pair `username: "some string"`.
+
+  If the field cannot be parsed successfully, the entire Constructor will return
+  `{:error, parse_failure_details}`.
+
+
+
+  Parser 2 says that the input *may* contain a `:birthday` field. If the field
+  does exists, it must parse successfully with `Data.Parser.BuiltIn.date/0`.
+
+  If the field exists and parses, the output map will contain the key-value pair
+  `birthday: {:just, ~D[1983-07-18]}`.
+
+  If the field does not exist, the output map will contain the key-value pair
+  `birthday: :nothing`.
+
+  If the field cannot be parsed successfully, the entire Constructor will return
+  `{:error, parse_failure_details}`.
+
+
+  Parser 3 says that the input *may* contain a `:country` field, and if so, the
+  value of that field must parse successfully with `MyApp.country_parser/0`.
+
+  If the field exists and parses successfully, the output map will contain a
+  key-value pair such as: `country: "Indonesia"`.
+
+  If the field does *not* exist, the `default` value will be used. In the case
+  of Parser 3, the output will contain the key-value pair: `country: "Canada"`
+
+  If the field cannot be parsed successfully, the entire Constructor will return
+  `{:error, parse_failure_details}`.
+
+  """
   defmodule Field do
+    @moduledoc false
     defstruct [:name, :parser, :optional, :default]
   end
 
@@ -9,6 +55,9 @@ defmodule Data.Constructor do
   alias Error
   alias FE.{Maybe, Result}
 
+  @typedoc """
+
+  """
   @type input :: map | Keyword.t()
   @type field_name :: atom()
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
@@ -21,42 +70,57 @@ defmodule Data.Constructor do
             optional: boolean(),
             default: Maybe.t(b)
           }
-  @opaque t(a, b) :: %__MODULE__{fields: [field(a, b)]}
 
+  @doc """
+
+  Given a list of `field_spec`s, a `module`, and an input `map` or `Keyword`,
+  create and run a parser which will either parse successfully and return an
+  `{:ok, %__MODULE__{}}` or fail and return an `{:error, Error.t}` with details
+  about the parsing failure.
+  """
   @spec struct([field_spec(any, any)], module(), input) :: Result.t(struct, Error.t())
   def struct(field_specs, struct_module, input) do
     field_specs
     |> new()
-    |> Result.and_then(&run(&1, input))
+    |> Result.and_then(fn parser -> parser.(input) end)
     |> Result.map(&struct(struct_module, &1))
   end
 
-  @spec new([field_spec(a, b)]) :: Result.t(t(a, b), Error.t()) when a: var, b: var
+  @doc """
+
+  Given a list of `field_spec`s, verify that all specs are well-formed and
+  return `{:ok, parser}`, where `parser` will accept a `map` or `Keyword` input
+  and apply the appropriate parsers to their corresponding fields.  If the
+  `field_spec`s are not well-formed, return `{:error, Error.t}` with details
+  about the invalid `field_spec`s.
+
+  """
+  @spec new([field_spec(a, b)]) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
   def new(field_specs) when is_list(field_specs) do
     Result.ok([])
     |> Result.fold(field_specs, &parse_field_spec/2)
-    |> Result.map(&%__MODULE__{fields: &1})
+    |> Result.map(fn fields -> fn input -> run(fields, input) end end)
   end
 
   def new(_other) do
     Error.domain(:not_a_list) |> Result.error()
   end
 
-  @spec run(t(any, any), input) :: Result.t(map, Error.t())
-  def run(%__MODULE__{} = constructor, input) when is_list(input) do
+  @spec run([Field.t()], input) :: Result.t(map, Error.t())
+  defp run(fields, input) when is_list(input) do
     case Keyword.keyword?(input) do
-      true -> run(constructor, Enum.into(input, %{}))
+      true -> run(fields, Enum.into(input, %{}))
       false -> Error.domain(:invalid_input, %{input: input}) |> Result.error()
     end
   end
 
-  def run(%__MODULE__{fields: fields}, input) when is_map(input) do
+  defp run(fields, input) when is_map(input) do
     Result.ok([])
     |> Result.fold(fields, &run_for_field(&1, &2, input))
     |> Result.map(&Enum.into(&1, %{}))
   end
 
-  def run(_constructor, other) do
+  defp run(_constructor, other) do
     Error.domain(:invalid_input, %{input: other}) |> Result.error()
   end
 

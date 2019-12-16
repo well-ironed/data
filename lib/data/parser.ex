@@ -8,6 +8,14 @@ defmodule Data.Parser do
   import Result, only: [ok: 1, error: 1]
   import Maybe, only: [just: 1, nothing: 0]
 
+  @typedoc """
+
+  A parser is a function which takes any value as input and produces a `Result.t`.
+
+  More specifically, a `parser(a,b)` is a fuction that takes any input and
+  returns `{:ok, a}` on a successful parse or `{:error, b}` if parsing failed.
+
+  """
   @type t(a, b) :: (any -> Result.t(a, b))
 
   @doc """
@@ -23,18 +31,17 @@ defmodule Data.Parser do
   input if `default` was a unary function.
 
   ## Examples
+      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").('charlists are not ok')
+      {:error, "invalid string"}
 
-    iex> Data.Parser.predicate(&String.valid?/1, "invalid string").('charlists are not ok')
-    {:error, "invalid string"}
+      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").(<<"neither are invalid utf sequences", 99999>>)
+      {:error, "invalid string"}
 
-    iex> Data.Parser.predicate(&String.valid?/1, "invalid string").(<<"neither are invalid utf sequences", 99999>>)
-    {:error, "invalid string"}
+      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").("this is fine")
+      {:ok, "this is fine"}
 
-    iex> Data.Parser.predicate(&String.valid?/1, "invalid string").("this is fine")
-    {:ok, "this is fine"}
-
-    iex> Data.Parser.predicate(&String.valid?/1, fn x -> "the bad value is: #\{inspect x}" end).(12345)
-    {:error, "the bad value is: 12345"}
+      iex> Data.Parser.predicate(&String.valid?/1, fn x -> "the bad value is: #\{inspect x}" end).(12345)
+      {:error, "the bad value is: 12345"}
 
   """
   @spec predicate((a -> boolean()), b | (a -> b)) :: t(a, b) when a: var, b: var

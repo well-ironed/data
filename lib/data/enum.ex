@@ -12,7 +12,7 @@ defmodule Data.Enum do
   new atoms should be generated dynamically on-the-fly.
 
   If `:safe` is `true` and an unknown atom would have to be created, this
-  function throws an `ArgumentError`.  If ':safe` is `false`, then a new atom
+  function throws an `ArgumentError`.  If `:safe` is `false`, then a new atom
   is created.
 
   Generating new atoms on-the-fly poses a security risk in prodution systems
