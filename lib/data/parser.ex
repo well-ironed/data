@@ -5,8 +5,11 @@ defmodule Data.Parser do
 
   """
   alias FE.{Maybe, Result}
+  alias MapSet, as: Set
   import Result, only: [ok: 1, error: 1]
   import Maybe, only: [just: 1, nothing: 0]
+
+  defdelegate kv(fields), to: Data.Parser.KV, as: :new
 
   @typedoc """
 
@@ -87,6 +90,128 @@ defmodule Data.Parser do
     end
   end
   def one_of(elements, default), do: one_of(elements, fn _ -> default end)
+
+  @doc """
+
+  Takes a parser `p` and creates a parser that will successfully parse inputs such that
+
+  1) the input is a list
+  2) `p` parses successfully all elements on the input list
+
+  If this is the case, the output will be `{:ok, list_of_parsed_values}`.
+
+  If not all values can be parsed with `p`, the result will be the orignal parse
+  error, enriched with the field `:failed_element` in the error details.
+
+  If the input is not a list, the domain error `:not_a_list` will be returned.
+
+  ## Examples
+
+      iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).([])
+      {:ok, []}
+
+      iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).([1,2,3])
+      {:ok, [1, 2, 3]}
+
+      iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).(%{a: :b})
+      {:error, %Error{details: %{}, kind: :domain, reason: :not_a_list}}
+
+      iex(11)> Data.Parser.list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
+      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+
+  """
+  @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
+  def list(p) do
+    fn
+      xs when is_list(xs) ->
+        Result.fold(Result.ok([]), xs, fn el, acc ->
+          case p.(el) do
+            {:ok, parsed} ->
+              Result.ok([parsed | acc])
+
+            {:error, why} ->
+              why
+              |> Error.map_details(&Map.put(&1, :failed_element, el))
+              |> Result.error()
+          end
+        end)
+        |> Result.map(&Enum.reverse/1)
+
+      _other ->
+        Error.domain(:not_a_list) |> Result.error()
+    end
+  end
+
+  @doc """
+
+  Creates a parser that behaves exactly the same as the `list/1` parser, except
+  that it will return the domain error `:empty_list` if applied to an empty list.
+
+  ## Examples
+
+      iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, 2, 3])
+      {:ok, [1, 2, 3]}
+
+      iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
+      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+
+      iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([])
+      {:error, %Error{details: %{}, kind: :domain, reason: :empty_list}}
+
+  """
+  @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
+  def nonempty_list(p) do
+    fn
+      [] -> Error.domain(:empty_list) |> Result.error()
+      xs -> list(p).(xs)
+    end
+  end
+
+  @doc """
+  Takes a parser `p` and creates a parser that will successfully parse inputs such that
+
+  1) the input is a `MapSet`
+  2) `p` parses successfully all elements in the input set
+
+  If this is the case, the output will be `{:ok, set_of_parsed_values}`.
+
+  If not all values can be parsed with `p`, the result will be the orignal parse
+  error, enriched with the field `:failed_element` in the error details.
+
+  If the input is not a `MapSet`, the domain error `:not_a_set` will be returned.
+
+  ## Examples
+
+      iex> {:ok, s} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new())
+      ...> s
+      #MapSet<[]>
+
+      iex> {:ok, s} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1,2,3]))
+      ...> s
+      #MapSet<[1, 2, 3]>
+
+      iex> Data.Parser.set(Data.Parser.BuiltIn.integer()).(%{a: :b})
+      {:error, %Error{details: %{}, kind: :domain, reason: :not_a_set}}
+
+      iex(11)> Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1, :b, 3]))
+      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+
+
+  """
+  @spec set(Parser.t(a, Error.t())) :: Parser.t(Set.t(a), Error.t()) when a: var
+  def set(p) do
+    fn
+      %Set{} = set ->
+        set
+        # to work around %Set{} opaqueness violation
+        |> (&apply(Set, :to_list, [&1])).()
+        |> list(p).()
+        |> Result.map(&Set.new/1)
+
+      _other ->
+        Error.domain(:not_a_set) |> Result.error()
+    end
+  end
 
   @doc """
 

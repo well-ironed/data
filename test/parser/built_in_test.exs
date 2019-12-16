@@ -4,7 +4,6 @@ defmodule Data.Parser.BuiltInTest do
 
   import Data.Parser.BuiltIn
   alias Error
-  alias MapSet, as: Set
 
   describe "integer/0" do
     test "returns the same integer as passed" do
@@ -27,77 +26,6 @@ defmodule Data.Parser.BuiltInTest do
 
     test "returns the same string as passed" do
       assert string().("123") == {:ok, "123"}
-    end
-  end
-
-  describe "list/1" do
-    test "successfully parses empty list" do
-      assert list(string()).([]) == {:ok, []}
-    end
-
-    test "successfully parses list where all elements parse" do
-      assert list(integer()).([1, 2, 3]) == {:ok, [1, 2, 3]}
-    end
-
-    test "returns error when first argument is not a list" do
-      assert {:error, error} = list(integer()).(:abc)
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_a_list
-    end
-
-    test "returns first failed parse if some elements don't parse" do
-      assert {:error, error} = list(integer()).([1, "2", 3])
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert Error.details(error) == %{failed_element: "2"}
-    end
-  end
-
-  describe "nonempty_list/1" do
-    test "returns error when list is empty" do
-      assert {:error, error} = nonempty_list(string()).([])
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :empty_list
-    end
-
-    test "returns error when first argument is not a list" do
-      assert {:error, error} = nonempty_list(integer()).(:bada)
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_a_list
-    end
-
-    test "successfully parses list when all elements parse" do
-      assert nonempty_list(integer()).([1, 2, 3]) == {:ok, [1, 2, 3]}
-    end
-
-    test "returns first failed parse if some elements don't parse" do
-      assert {:error, error} = nonempty_list(string()).(["a", "b", :c])
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_a_string
-      assert Error.details(error) == %{failed_element: :c}
-    end
-  end
-
-  describe "set/1" do
-    test "successfully parses empty set" do
-      assert set(string()).(Set.new()) == {:ok, Set.new()}
-    end
-
-    test "successfully parses set where all elements parse" do
-      assert set(integer()).(Set.new([1, 2, 3])) == {:ok, Set.new([1, 2, 3])}
-    end
-
-    test "returns error when first argument is not a set" do
-      assert {:error, error} = set(integer()).(:abc)
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_a_set
-    end
-
-    test "returns first failed parse if some elements don't parse" do
-      assert {:error, error} = set(integer()).(Set.new([1, "2", 3]))
-      assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert Error.details(error) == %{failed_element: "2"}
     end
   end
 
