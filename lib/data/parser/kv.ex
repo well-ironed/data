@@ -1,12 +1,12 @@
 defmodule Data.Parser.KV do
   @moduledoc """
-  Create parsers that accept KeyValue-style `Enum`s as input.
+  Creates parsers that accept KeyValue-style `Enum`s as input.
 
   In particular, KV parsers work with:
 
-  - maps (e.g. %{"hello" => "world"})
-  - `Keyword.t`s (e.g. [hello: "world"])
-  - Lists of pairs (e.g. [{"hello", "world"}])
+  - maps (e.g. `%{"hello" => "world"}`)
+  - `Keyword.t`s (e.g. `[hello: "world"]`)
+  - Lists of pairs (e.g. `[{"hello", "world"}]`)
 
   KV parsers are higher-order parsers, and operate in roughly the same way as
   `Data.Parser.list/1` or `Data.Parser.set/1`, but their definition is slightly
@@ -14,21 +14,24 @@ defmodule Data.Parser.KV do
   each `field_spec` defines what fields of the input to look at, and what
   parsers to run on them.
 
-  Here are some parsers defined with `field_spec`s:
+  Here are some examples of `field_spec`s and their parsing behavior:
 
-  1. {:username, Data.Parser.BuiltIn.string()}
-  2. {:birthday, Data.Parser.BuiltIn.date(), optional: true}
-  3. {:country, MyApp.country_parser(), default: "Canada"}
+  ###  `{:username, \Data.Parser.BuiltIn.string()}`
 
-  Parser 1 above says that the input must contain a `:username` field, and the
-  value of that field must satisfy `Data.Parser.BuiltIn.string/0`.  The output
-  map will contain the key-value pair `username: "some string"`.
+  This spec says that the input must contain a `:username` field, and the value
+  of that field must satisfy `Data.Parser.BuiltIn.string/0`.  The output map
+  will contain the key-value pair `username: "some string"`.
 
   If the field cannot be parsed successfully, the entire KV parser will return
   `{:error, domain_error_with_details_on_parse_failure}`.
 
+  If the field is not present, the entire KV parser will return
+  `{:error, domain_error_with_details_about_field_not_found}`
 
-  Parser 2 says that the input *may* contain a `:birthday` field. If the field
+
+  ###  `{:birthday, Data.Parser.BuiltIn.date(), optional: true}`
+
+  This spec says that the input *may* contain a `:birthday` field. If the field
   does exist, it must satisfy `Data.Parser.BuiltIn.date/0`.
 
   If the field exists and parses successfully, the output map will contain the
@@ -38,20 +41,24 @@ defmodule Data.Parser.KV do
   `birthday: :nothing`.
 
   If the field cannot be parsed successfully, the entire KV parser will return
-  `{:error, parse_failure_details}`.
+  `{:error, domain_error_with_parse_failure_details}`.
 
 
-  Parser 3 says that the input *may* contain a `:country` field, and if so, the
+  ### `{:country, MyApp.country_parser(), default: "Canada"}`
+
+
+  This spec says that the input *may* contain a `:country` field, and if so, the
   value of that field must parse successfully with `MyApp.country_parser/0`.
 
   If the field exists and parses successfully, the output map will contain a
   key-value pair such as: `country: "Indonesia"`.
 
-  If the field does *not* exist, the `default` value will be used. In the case
-  of Parser 3, the output will contain the key-value pair: `country: "Canada"`
-
   If the field cannot be parsed successfully, the entire Constructor will return
-  `{:error, domain_error_with_details_on_parse_failuer}`.
+  `{:error, domain_error_with_details_on_parse_failure}`.
+
+  If the field does *not* exist, the `default` value will be used. In this
+  case, the output will contain the key-value pair: `country: "Canada"`
+
 
   """
   alias Data.Parser
@@ -67,22 +74,35 @@ defmodule Data.Parser.KV do
   """
   @type input :: map | Keyword.t()
 
+  @typedoc """
+  KV parsers accept `atom()`s as key names, but will work on inputs where
+  the keys are `String.t()`s as well.
+  """
   @type field_name :: atom()
+
+  @typedoc """
+  Options to relax requirements on the fields.
+
+  This is a list that consists of zero or one of the below options:
+  `{:optional, bool()}`
+  `{:default, any}`
+  """
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
+
 
   @typedoc """
   A 2-tuple or 3-tuple describing the field to parse and parsing semantics.
 
-  {field_name, parser}
-
-  OR
-
-  {field_name, parser, opts}
+  `{field_name, parser}`
+  `{field_name, parser, opts}`
 
   """
   @type field_spec(a, b) ::
           {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(b)}
 
+  @typedoc """
+  A structure representing a `Data.Parser.t(a,b)` lifted to operate on a KV.
+  """
   @opaque field(a, b) :: %Field{
             name: field_name(),
             parser: Parser.t(a, b),
@@ -102,6 +122,10 @@ defmodule Data.Parser.KV do
   ## Examples
       iex> {:ok, p} = Data.Parser.KV.new([{:username, Data.Parser.BuiltIn.string()}])
       ...> p.(username: "johndoe")
+      {:ok, %{username: "johndoe"}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:username, Data.Parser.BuiltIn.string()}])
+      ...> p.(%{"username" => "johndoe"})
       {:ok, %{username: "johndoe"}}
 
       iex> {:error, e} = Data.Parser.KV.new(["not a spec"])
@@ -188,12 +212,21 @@ defmodule Data.Parser.KV do
   end
 
   defp run_for_field(%Field{name: name} = field, acc, input) do
-    case Map.fetch(input, name) do
+    case fetch_key(input, name) do
       {:ok, value} ->
         existing_field(field, acc, value, input)
 
       :error ->
         missing_field(field, acc, input)
+    end
+  end
+
+  defp fetch_key(%{} = input, key) when is_atom(key) do
+    case Map.fetch(input, key) do
+      :error ->
+        Map.fetch(input, Atom.to_string(key))
+      found ->
+        found
     end
   end
 

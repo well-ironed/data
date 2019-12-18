@@ -24,7 +24,7 @@ defmodule Data.Parser do
   @doc """
 
   Takes a boolean function `p` (the predicate) and a default value, and returns
-  a parser. The parser's behavior when applied to input is as follows:
+  a parser that parses successfully those values for which `p` is `true`.
 
   If the predicate function applied to the input returns `true`, the parser
   wraps the input in an `{:ok, input}` tuple.
@@ -96,16 +96,18 @@ defmodule Data.Parser do
 
   @doc """
 
-  Takes a parser `p` and creates a parser that will successfully parse inputs such that
+  Takes a parser `p` and creates a parser that will successfully parse lists of values that all satisfy `p`.
 
-  1) the input is a list
+  Specifically, the input:
 
-  2) `p` parses successfully all elements on the input list
+  1) Must be a list
+
+  2) `p` must parse successfully all elements in the input
 
   If this is the case, the output will be `{:ok, list_of_parsed_values}`.
 
-  If not all values can be parsed with `p`, the result will be the original parse
-  error, enriched with the field `:failed_element` in the error details.
+  If not all values can be parsed with `p`, the result will be the original
+  parse error, enriched with the field `:failed_element` in the error details.
 
   If the input is not a list, the domain error `:not_a_list` will be returned.
 
@@ -172,11 +174,15 @@ defmodule Data.Parser do
   end
 
   @doc """
-  Takes a parser `p` and creates a parser that will successfully parse inputs such that
 
-  1) the input is a `MapSet`
+  Takes a parser `p` and creates a parser that will successfully parse sets of
+  values that all satisfy `p`.
 
-  2) `p` parses successfully all elements in the input set
+  Specifically, the input:
+
+  1) must be a `MapSet`
+
+  2) all elements of the input set must be parsed correctly by `p`
 
   If this is the case, the output will be `{:ok, set_of_parsed_values}`.
 
@@ -220,7 +226,7 @@ defmodule Data.Parser do
 
   @doc """
 
-  Takes a parser and transforms it so that it works 'inside' Maybe.t values.
+  Takes a parser and transforms it so that it works 'inside' `Maybe.t` values.
 
   If the original parser works on `String.t()`, the new one will work on
   `Maybe.t(String.t())`.

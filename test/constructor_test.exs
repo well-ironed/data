@@ -1,5 +1,6 @@
 defmodule Data.ConstructorTest do
   use ExUnit.Case, async: true
+  doctest Data.Constructor
 
   alias Data.Constructor
   import Data.Parser.BuiltIn
