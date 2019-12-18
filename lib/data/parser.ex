@@ -1,7 +1,7 @@
 defmodule Data.Parser do
   @moduledoc """
 
-  `Data.Parser` holds higher-order functions used to create or modify parsers.
+  Higher-order functions to create and modify parsers.
 
   """
   alias FE.{Maybe, Result}
@@ -13,7 +13,7 @@ defmodule Data.Parser do
 
   @typedoc """
 
-  A parser is a function which takes any value as input and produces a `Result.t`.
+  A parser is a function that takes any value as input and produces a `Result.t`.
 
   More specifically, a `parser(a,b)` is a fuction that takes any input and
   returns `{:ok, a}` on a successful parse or `{:error, b}` if parsing failed.
@@ -23,15 +23,18 @@ defmodule Data.Parser do
 
   @doc """
 
-  Takes a boolean function p (the predicate) and a default value and returns a
-  parser. The parser's behavior when applied to input is as follows:
+  Takes a boolean function `p` (the predicate) and a default value, and returns
+  a parser. The parser's behavior when applied to input is as follows:
 
   If the predicate function applied to the input returns `true`, the parser
   wraps the input in an `{:ok, input}` tuple.
 
-  If the predicate function returns `false`, the parser either returns
-  `{:error, default}` when `default` was a value, or `default` applied to the
-  input if `default` was a unary function.
+  If the predicate function returns `false`, and `default` is a value, the
+  parser returns `{:error, default}`
+
+  If the predicate returns `false` and `default` is a unary function, the
+  parser returns `{:error, default.(the_failed_input)}`.
+
 
   ## Examples
       iex> Data.Parser.predicate(&String.valid?/1, "invalid string").('charlists are not ok')
@@ -62,11 +65,11 @@ defmodule Data.Parser do
   @doc """
 
   Takes a list of values, `elements`, and returns a parser that returns
-  successfully if its input in `elements`.
+  successfully if its input is present in `elements`.
 
   If the input is not a member of `elements` and `default` is a value, the
   parser fails with `{:error, default}`. If `default` is a unary function, the
-  parser fails with `{:error, default(input)}`.
+  parser fails with `{:error, default.(input)}`.
 
   ## Examples
       iex> Data.Parser.one_of([:he, :ne, :ar, :kr, :xe, :rn], "not a noble gas").(:he)
@@ -96,11 +99,12 @@ defmodule Data.Parser do
   Takes a parser `p` and creates a parser that will successfully parse inputs such that
 
   1) the input is a list
+
   2) `p` parses successfully all elements on the input list
 
   If this is the case, the output will be `{:ok, list_of_parsed_values}`.
 
-  If not all values can be parsed with `p`, the result will be the orignal parse
+  If not all values can be parsed with `p`, the result will be the original parse
   error, enriched with the field `:failed_element` in the error details.
 
   If the input is not a list, the domain error `:not_a_list` will be returned.
@@ -114,10 +118,10 @@ defmodule Data.Parser do
       {:ok, [1, 2, 3]}
 
       iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).(%{a: :b})
-      {:error, %Error{details: %{}, kind: :domain, reason: :not_a_list}}
+      {:error, %Error.DomainError{details: %{}, reason: :not_a_list}}
 
       iex(11)> Data.Parser.list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
-      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
 
   """
   @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
@@ -153,10 +157,10 @@ defmodule Data.Parser do
       {:ok, [1, 2, 3]}
 
       iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
-      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
 
       iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([])
-      {:error, %Error{details: %{}, kind: :domain, reason: :empty_list}}
+      {:error, %Error.DomainError{details: %{}, reason: :empty_list}}
 
   """
   @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
@@ -171,11 +175,12 @@ defmodule Data.Parser do
   Takes a parser `p` and creates a parser that will successfully parse inputs such that
 
   1) the input is a `MapSet`
+
   2) `p` parses successfully all elements in the input set
 
   If this is the case, the output will be `{:ok, set_of_parsed_values}`.
 
-  If not all values can be parsed with `p`, the result will be the orignal parse
+  If not all values can be parsed with `p`, the result will be the original parse
   error, enriched with the field `:failed_element` in the error details.
 
   If the input is not a `MapSet`, the domain error `:not_a_set` will be returned.
@@ -191,10 +196,10 @@ defmodule Data.Parser do
       #MapSet<[1, 2, 3]>
 
       iex> Data.Parser.set(Data.Parser.BuiltIn.integer()).(%{a: :b})
-      {:error, %Error{details: %{}, kind: :domain, reason: :not_a_set}}
+      {:error, %Error.DomainError{details: %{}, reason: :not_a_set}}
 
       iex(11)> Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1, :b, 3]))
-      {:error, %Error{details: %{failed_element: :b}, kind: :domain, reason: :not_an_integer}}
+      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
 
 
   """

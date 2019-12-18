@@ -1,35 +1,43 @@
 defmodule Data.Parser.KV do
   @moduledoc """
-  The functions in this module can be used to create `Constructor` parsers.
+  Create parsers that accept KeyValue-style `Enum`s as input.
 
-  `Constructor` parsers are specialized parsers which accept `map`s or
-  `Keyword.t`s as input, and apply sub-parsers to particular fields in the input.
+  In particular, KV parsers work with:
 
-  The sub-parsers are defined using `field_spec`s such as the following:
+  - maps (e.g. %{"hello" => "world"})
+  - `Keyword.t`s (e.g. [hello: "world"])
+  - Lists of pairs (e.g. [{"hello", "world"}])
+
+  KV parsers are higher-order parsers, and operate in roughly the same way as
+  `Data.Parser.list/1` or `Data.Parser.set/1`, but their definition is slightly
+  more involved. A KV parser is created with a list of `field_spec`s, where
+  each `field_spec` defines what fields of the input to look at, and what
+  parsers to run on them.
+
+  Here are some parsers defined with `field_spec`s:
 
   1. {:username, Data.Parser.BuiltIn.string()}
   2. {:birthday, Data.Parser.BuiltIn.date(), optional: true}
   3. {:country, MyApp.country_parser(), default: "Canada"}
 
   Parser 1 above says that the input must contain a `:username` field, and the
-  value of that field must parse successfully with `Data.Parser.BuiltIn.string/0`.
-  The output map will contain the key-value pair `username: "some string"`.
+  value of that field must satisfy `Data.Parser.BuiltIn.string/0`.  The output
+  map will contain the key-value pair `username: "some string"`.
 
-  If the field cannot be parsed successfully, the entire Constructor will return
-  `{:error, parse_failure_details}`.
-
+  If the field cannot be parsed successfully, the entire KV parser will return
+  `{:error, domain_error_with_details_on_parse_failure}`.
 
 
   Parser 2 says that the input *may* contain a `:birthday` field. If the field
-  does exists, it must parse successfully with `Data.Parser.BuiltIn.date/0`.
+  does exist, it must satisfy `Data.Parser.BuiltIn.date/0`.
 
-  If the field exists and parses, the output map will contain the key-value pair
-  `birthday: {:just, ~D[1983-07-18]}`.
+  If the field exists and parses successfully, the output map will contain the
+  key-value pair `birthday: {:just, ~D[1983-07-18]}`.
 
   If the field does not exist, the output map will contain the key-value pair
   `birthday: :nothing`.
 
-  If the field cannot be parsed successfully, the entire Constructor will return
+  If the field cannot be parsed successfully, the entire KV parser will return
   `{:error, parse_failure_details}`.
 
 
@@ -43,7 +51,7 @@ defmodule Data.Parser.KV do
   of Parser 3, the output will contain the key-value pair: `country: "Canada"`
 
   If the field cannot be parsed successfully, the entire Constructor will return
-  `{:error, parse_failure_details}`.
+  `{:error, domain_error_with_details_on_parse_failuer}`.
 
   """
   alias Data.Parser
@@ -54,9 +62,24 @@ defmodule Data.Parser.KV do
     defstruct [:name, :parser, :optional, :default]
   end
 
+  @typedoc """
+  KV parsers accept either a map or a `Keyword.t` as input.
+  """
   @type input :: map | Keyword.t()
+
   @type field_name :: atom()
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
+
+  @typedoc """
+  A 2-tuple or 3-tuple describing the field to parse and parsing semantics.
+
+  {field_name, parser}
+
+  OR
+
+  {field_name, parser, opts}
+
+  """
   @type field_spec(a, b) ::
           {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(b)}
 
@@ -71,9 +94,40 @@ defmodule Data.Parser.KV do
 
   Given a list of `field_spec`s, verify that all specs are well-formed and
   return `{:ok, parser}`, where `parser` will accept a `map` or `Keyword` input
-  and apply the appropriate parsers to their corresponding fields.  If the
-  `field_spec`s are not well-formed, return `{:error, Error.t}` with details
+  and apply the appropriate parsers to their corresponding fields.
+
+  If the `field_spec`s are not well-formed, return `{:error, Error.t}` with details
   about the invalid `field_spec`s.
+
+  ## Examples
+      iex> {:ok, p} = Data.Parser.KV.new([{:username, Data.Parser.BuiltIn.string()}])
+      ...> p.(username: "johndoe")
+      {:ok, %{username: "johndoe"}}
+
+      iex> {:error, e} = Data.Parser.KV.new(["not a spec"])
+      ...> e
+      %Error.DomainError{details: %{spec: "not a spec"}, reason: :invalid_field_spec}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), optional: true}])
+      ...> p.(a: 1)
+      {:ok, %{a: {:just, 1}}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), optional: true}])
+      ...> p.([])
+      {:ok, %{a: :nothing}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:b, Data.Parser.BuiltIn.integer(), default: 0}])
+      ...> p.([])
+      {:ok, %{b: 0}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:b, Data.Parser.BuiltIn.integer(), default: 0}])
+      ...> p.(b: 10)
+      {:ok, %{b: 10}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:b, Data.Parser.BuiltIn.integer(), default: 0}])
+      ...> p.(b: "i am of the wrong type")
+      {:error, %Error.DomainError{details: %{field: :b, input: %{b: "i am of the wrong type"}, parse_error: %Error.DomainError{details: %{}, reason: :not_an_integer}}, reason: :failed_to_parse_field}}
+
 
   """
   @spec new([field_spec(a, b)]) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
@@ -152,7 +206,8 @@ defmodule Data.Parser.KV do
       end
     end)
     |> Result.map_error(fn error ->
-      Error.map_details(error, &Map.merge(&1, %{field: name, input: input}))
+      Error.domain(:failed_to_parse_field,
+        %{field: name, input: input, parse_error: error})
     end)
   end
 

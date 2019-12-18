@@ -158,13 +158,27 @@ defmodule Data.ParserTest do
       assert Error.details(error) == %{field: :count, input: %{}}
     end
 
+    test "a kv with required field fails if field doesn't exist in nonempty input" do
+      {:ok, kv} = Parser.kv([{:count, integer()}])
+      assert {:error, error} = kv.(%{a: 1})
+      assert {:error, ^error} = kv.([a: 1])
+
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :field_not_found_in_input
+      assert Error.details(error) == %{field: :count, input: %{a: 1}}
+    end
+
     test "a kv with required field fails if the field's parser fails" do
       {:ok, kv} = Parser.kv([{:count, integer()}])
       assert {:error, error} = kv.(%{count: "123"})
       assert {:error, ^error} = kv.(count: "123")
       assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert Error.details(error) == %{field: :count, input: %{count: "123"}}
+      assert Error.reason(error) == :failed_to_parse_field
+      assert %{field: :count,
+               input: %{count: "123"},
+               parse_error: field_error} = Error.details(error)
+
+      assert Error.reason(field_error) == :not_an_integer
     end
 
     test "a kv with required field passes if field's parser passes" do
@@ -190,8 +204,11 @@ defmodule Data.ParserTest do
       assert {:error, error} = kv.(%{height: "123"})
       assert {:error, ^error} = kv.(height: "123")
       assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert Error.details(error) == %{field: :height, input: %{height: "123"}}
+      assert Error.reason(error) == :failed_to_parse_field
+      assert %{field: :height, input: %{height: "123"},
+               parse_error: field_error} = Error.details(error)
+
+      assert Error.reason(field_error) == :not_an_integer
     end
 
     test "a kv with field with default value passes with that value " <>
@@ -212,8 +229,10 @@ defmodule Data.ParserTest do
       assert {:error, error} = kv.(%{age: "123"})
       assert {:error, ^error} = kv.(age: "123")
       assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert Error.details(error) == %{field: :age, input: %{age: "123"}}
+      assert Error.reason(error) == :failed_to_parse_field
+      assert %{field: :age, input: %{age: "123"}, parse_error: field_error} =
+        Error.details(error)
+      assert Error.reason(field_error) == :not_an_integer
     end
 
     test "a kv cannot be created with an invalid field spec" do
@@ -234,6 +253,35 @@ defmodule Data.ParserTest do
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :invalid_field_spec
       assert Error.details(error) == %{spec: {:weight, integer(), default: 10, optional: true}}
+    end
+
+    test "a nested kv can be parsed" do
+      {:ok, inner_kv} = Parser.kv([{:inner, integer()}])
+      {:ok, kv} = Parser.kv([{:outer, inner_kv}])
+      assert kv.(%{outer: %{inner: 42}}) == {:ok, %{outer: %{inner: 42}}}
+      assert kv.([outer: %{inner: 42}]) == {:ok, %{outer: %{inner: 42}}}
+      assert kv.([outer: [inner: 42]]) == {:ok, %{outer: %{inner: 42}}}
+      assert kv.(%{outer: [inner: 42]}) == {:ok, %{outer: %{inner: 42}}}
+    end
+
+    test "information about failed field from inner parser is passed to outer parser" do
+      {:ok, inner_kv} = Parser.kv([{:inner, integer()}])
+      {:ok, kv} = Parser.kv([{:outer, inner_kv}])
+      assert {:error, outer_error} = kv.(%{outer: %{inner: "string"}})
+
+      assert Error.kind(outer_error) == :domain
+      assert Error.reason(outer_error) == :failed_to_parse_field
+      assert %{input: %{outer: %{inner: "string"}}, field: :outer,
+               parse_error: inner_error} = Error.details(outer_error)
+
+      assert Error.kind(inner_error) == :domain
+      assert Error.reason(inner_error) == :failed_to_parse_field
+      assert %{input: %{inner: "string"}, field: :inner,
+              parse_error: field_error} = Error.details(inner_error)
+
+      assert Error.kind(field_error) == :domain
+      assert Error.reason(field_error) == :not_an_integer
+
     end
 
   end
