@@ -175,9 +175,9 @@ defmodule Data.ParserTest do
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :failed_to_parse_field
       assert %{field: :count,
-               input: %{count: "123"},
-               parse_error: field_error} = Error.details(error)
+               input: %{count: "123"}} = Error.details(error)
 
+      assert {:just, field_error} = Error.caused_by(error)
       assert Error.reason(field_error) == :not_an_integer
     end
 
@@ -205,9 +205,8 @@ defmodule Data.ParserTest do
       assert {:error, ^error} = kv.(height: "123")
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :failed_to_parse_field
-      assert %{field: :height, input: %{height: "123"},
-               parse_error: field_error} = Error.details(error)
-
+      assert %{field: :height, input: %{height: "123"}} = Error.details(error)
+      assert {:just, field_error} = Error.caused_by(error)
       assert Error.reason(field_error) == :not_an_integer
     end
 
@@ -230,8 +229,8 @@ defmodule Data.ParserTest do
       assert {:error, ^error} = kv.(age: "123")
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :failed_to_parse_field
-      assert %{field: :age, input: %{age: "123"}, parse_error: field_error} =
-        Error.details(error)
+      assert %{field: :age, input: %{age: "123"}} = Error.details(error)
+      assert {:just, field_error} = Error.caused_by(error)
       assert Error.reason(field_error) == :not_an_integer
     end
 
@@ -271,14 +270,14 @@ defmodule Data.ParserTest do
 
       assert Error.kind(outer_error) == :domain
       assert Error.reason(outer_error) == :failed_to_parse_field
-      assert %{input: %{outer: %{inner: "string"}}, field: :outer,
-               parse_error: inner_error} = Error.details(outer_error)
+      assert %{input: %{outer: %{inner: "string"}}, field: :outer} = Error.details(outer_error)
+      assert {:just, inner_error} = Error.caused_by(outer_error)
 
       assert Error.kind(inner_error) == :domain
       assert Error.reason(inner_error) == :failed_to_parse_field
-      assert %{input: %{inner: "string"}, field: :inner,
-              parse_error: field_error} = Error.details(inner_error)
+      assert %{input: %{inner: "string"}, field: :inner} = Error.details(inner_error)
 
+      assert {:just, field_error} = Error.caused_by(inner_error)
       assert Error.kind(field_error) == :domain
       assert Error.reason(field_error) == :not_an_integer
 

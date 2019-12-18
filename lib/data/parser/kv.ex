@@ -129,8 +129,10 @@ defmodule Data.Parser.KV do
       {:ok, %{username: "johndoe"}}
 
       iex> {:error, e} = Data.Parser.KV.new(["not a spec"])
-      ...> e
-      %Error.DomainError{details: %{spec: "not a spec"}, reason: :invalid_field_spec}
+      ...> e.reason
+      :invalid_field_spec
+      ...> e.details
+      %{spec: "not a spec"}
 
       iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), optional: true}])
       ...> p.(a: 1)
@@ -149,9 +151,12 @@ defmodule Data.Parser.KV do
       {:ok, %{b: 10}}
 
       iex> {:ok, p} = Data.Parser.KV.new([{:b, Data.Parser.BuiltIn.integer(), default: 0}])
-      ...> p.(b: "i am of the wrong type")
-      {:error, %Error.DomainError{details: %{field: :b, input: %{b: "i am of the wrong type"}, parse_error: %Error.DomainError{details: %{}, reason: :not_an_integer}}, reason: :failed_to_parse_field}}
-
+      ...> {:error, e} = p.(b: "i am of the wrong type")
+      ...> Error.reason(e)
+      :failed_to_parse_field
+      ...> {:just, inner_error} = Error.caused_by(e)
+      ...> Error.reason(inner_error)
+      :not_an_integer
 
   """
   @spec new([field_spec(a, b)]) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
@@ -239,8 +244,9 @@ defmodule Data.Parser.KV do
       end
     end)
     |> Result.map_error(fn error ->
-      Error.domain(:failed_to_parse_field,
-        %{field: name, input: input, parse_error: error})
+      error
+      |> Error.wrap(Error.domain(:failed_to_parse_field,
+          %{field: name, input: input}))
     end)
   end
 

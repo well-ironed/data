@@ -119,11 +119,15 @@ defmodule Data.Parser do
       iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).([1,2,3])
       {:ok, [1, 2, 3]}
 
-      iex> Data.Parser.list(Data.Parser.BuiltIn.integer()).(%{a: :b})
-      {:error, %Error.DomainError{details: %{}, reason: :not_a_list}}
+      iex> {:error, e} = Data.Parser.list(Data.Parser.BuiltIn.integer()).(%{a: :b})
+      ...> Error.reason(e)
+      :not_a_list
 
-      iex(11)> Data.Parser.list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
-      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
+      iex> {:error, e} = Data.Parser.list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
+      ...> Error.reason(e)
+      :not_an_integer
+      ...> Error.details(e)
+      %{failed_element: :b}
 
   """
   @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
@@ -158,11 +162,16 @@ defmodule Data.Parser do
       iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, 2, 3])
       {:ok, [1, 2, 3]}
 
-      iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
-      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
+      iex> {:error, e} = Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([1, :b, 3])
+      ...> Error.reason(e)
+      :not_an_integer
+      ...> Error.details(e)
+       %{failed_element: :b}
 
-      iex> Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([])
-      {:error, %Error.DomainError{details: %{}, reason: :empty_list}}
+
+      iex> {:error, e} = Data.Parser.nonempty_list(Data.Parser.BuiltIn.integer()).([])
+      ...> Error.reason(e)
+      :empty_list
 
   """
   @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
@@ -201,12 +210,15 @@ defmodule Data.Parser do
       ...> s
       #MapSet<[1, 2, 3]>
 
-      iex> Data.Parser.set(Data.Parser.BuiltIn.integer()).(%{a: :b})
-      {:error, %Error.DomainError{details: %{}, reason: :not_a_set}}
+      iex> {:error, e} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(%{a: :b})
+      ...> Error.reason(e)
+      :not_a_set
 
-      iex(11)> Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1, :b, 3]))
-      {:error, %Error.DomainError{details: %{failed_element: :b}, reason: :not_an_integer}}
-
+      iex> {:error, e} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1, :b, 3]))
+      ...> Error.reason(e)
+      :not_an_integer
+      ...> Error.details(e)
+      %{failed_element: :b}
 
   """
   @spec set(Parser.t(a, Error.t())) :: Parser.t(Set.t(a), Error.t()) when a: var
