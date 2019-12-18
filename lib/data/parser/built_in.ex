@@ -1,9 +1,29 @@
 defmodule Data.Parser.BuiltIn do
+  @moduledoc """
+  Parsers for built-in Elixir data types.
+  """
   alias Error
   alias FE.Result
   alias Data.Parser
-  alias MapSet, as: Set
 
+  @doc """
+
+  Creates a parser that successfully parses `integer`s, and returns the
+  domain error `:not_an_integer` for all other inputs.
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.integer().(1)
+      {:ok, 1}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.integer().(1.0)
+      ...> Error.reason(e)
+      :not_an_integer
+
+      iex> {:error, e} = Data.Parser.BuiltIn.integer().(:hi)
+      ...> Error.reason(e)
+      :not_an_integer
+
+  """
   @spec integer() :: Parser.t(integer, Error.t())
   def integer do
     fn
@@ -12,6 +32,25 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
+  @doc """
+
+  Creates a parser that succesfully parses `String.t`s (a.k.a binaries), and
+  returns the domain error `:not_a_string` for all other inputs.
+
+  ## Examples
+
+      iex> Data.Parser.BuiltIn.string().("hi")
+      {:ok, "hi"}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.string().('hi')
+      ...> Error.reason(e)
+      :not_a_string
+
+      iex> {:error, e} = Data.Parser.BuiltIn.string().(:hi)
+      ...> Error.reason(e)
+      :not_a_string
+
+  """
   @spec string() :: Parser.t(String.t(), Error.t())
   def string() do
     fn
@@ -20,51 +59,29 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
-  @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
-  def list(p) do
-    fn
-      xs when is_list(xs) ->
-        Result.fold(Result.ok([]), xs, fn el, acc ->
-          case p.(el) do
-            {:ok, parsed} ->
-              Result.ok([parsed | acc])
 
-            {:error, why} ->
-              why
-              |> Error.map_details(&Map.put(&1, :failed_element, el))
-              |> Result.error()
-          end
-        end)
-        |> Result.map(&Enum.reverse/1)
+  @doc """
 
-      _other ->
-        Error.domain(:not_a_list) |> Result.error()
-    end
-  end
+  Creates a parser that successfully parses `boolean`s, and returns the
+  domain error `:not_a_boolean` for all other inputs.
 
-  @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
-  def nonempty_list(p) do
-    fn
-      [] -> Error.domain(:empty_list) |> Result.error()
-      xs -> list(p).(xs)
-    end
-  end
+  ## Examples
+      iex> Data.Parser.BuiltIn.boolean().(true)
+      {:ok, true}
 
-  @spec set(Parser.t(a, Error.t())) :: Parser.t(Set.t(a), Error.t()) when a: var
-  def set(p) do
-    fn
-      %Set{} = set ->
-        set
-        # to work around %Set{} opaqueness violation
-        |> (&apply(Set, :to_list, [&1])).()
-        |> list(p).()
-        |> Result.map(&Set.new/1)
+      iex> Data.Parser.BuiltIn.boolean().(false)
+      {:ok, false}
 
-      _other ->
-        Error.domain(:not_a_set) |> Result.error()
-    end
-  end
+      iex> {:error, e} = Data.Parser.BuiltIn.boolean().(1.0)
+      ...> Error.reason(e)
+      :not_a_boolean
 
+
+      iex> {:error, e} = Data.Parser.BuiltIn.boolean().([:truth, :or, :dare])
+      ...> Error.reason(e)
+      :not_a_boolean
+
+  """
   @spec boolean() :: Parser.t(boolean(), Error.t())
   def boolean do
     fn
@@ -73,6 +90,37 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
+  @doc """
+
+  Creates a parser that successfully parses `Date.t`s or `String.t` that
+  represent legitimate `Date.t`s.
+
+  Returns a domain error representing the parse failure if
+  the string input cannot be parsed, and the domain error `:not_a_date`
+  for all other inputs.
+
+  ## Examples
+      iex> {:ok, d} = Data.Parser.BuiltIn.date().(~D[1999-12-31])
+      ...> d
+      ~D[1999-12-31]
+
+      iex> {:ok, d} = Data.Parser.BuiltIn.date().("1999-12-31")
+      ...> d
+      ~D[1999-12-31]
+
+      iex> {:error, e} = Data.Parser.BuiltIn.date().("19991232")
+      ...> Error.reason(e)
+      :invalid_format
+
+      iex> {:error, e} = Data.Parser.BuiltIn.date().("1999-12-32")
+      ...> Error.reason(e)
+      :invalid_date
+
+      iex> {:error, e} = Data.Parser.BuiltIn.date().(123456789)
+      ...> Error.reason(e)
+      :not_a_date
+
+  """
   @spec date() :: Parser.t(Date.t(), Error.t())
   def date do
     fn
@@ -89,6 +137,39 @@ defmodule Data.Parser.BuiltIn do
         Error.domain(:not_a_date) |> Result.error()
     end
   end
+
+  @doc """
+
+  Creates a parser that successfully parses `DateTime.t`s or `String.t` that
+  represent legitimate `DateTime.t`s.
+
+  Returns a domain error representing the parse failure if the string input
+  cannot be parsed, and the domain error `:not_a_datetime` for all other inputs.
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.datetime().(~U[1999-12-31 23:59:59Z])
+      {:ok, ~U[1999-12-31 23:59:59Z]}
+
+      iex> Data.Parser.BuiltIn.datetime().("1999-12-31 23:59:59Z")
+      {:ok, ~U[1999-12-31 23:59:59Z]}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.datetime().("1999-12-32 23:59:59Z")
+      ...> Error.reason(e)
+      :invalid_date
+
+      iex> {:error, e} = Data.Parser.BuiltIn.datetime().("1999-12-31 23:59:99Z")
+      ...> Error.reason(e)
+      :invalid_time
+
+      iex> {:error, e} = Data.Parser.BuiltIn.datetime().("1999-12-31 23:59:59")
+      ...> Error.reason(e)
+      :missing_offset
+
+      iex> {:error, e} = Data.Parser.BuiltIn.datetime().(123456789)
+      ...> Error.reason(e)
+      :not_a_datetime
+
+  """
 
   @spec datetime() :: Parser.t(DateTime.t(), Error.t())
   def datetime do
@@ -107,6 +188,34 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
+  @doc """
+
+  Creates a parser that successfully parses `NaiveDateTime.t`s or `String.t` that
+  represent legitimate `NaiveDateTime.t`s.
+
+  Returns a domain error representing the parse failure if the string input
+  cannot be parsed, and the domain error `:not_a_naive_datetime` for all other
+  inputs.
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.naive_datetime.(~N[1999-12-31 23:59:59])
+      {:ok, ~N[1999-12-31 23:59:59]}
+
+      iex> Data.Parser.BuiltIn.naive_datetime.("1999-12-31 23:59:59")
+      {:ok, ~N[1999-12-31 23:59:59]}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.naive_datetime.("1999-12-32 23:59:59")
+      ...> Error.reason(e)
+      :invalid_date
+
+      iex> {:error, e} = Data.Parser.BuiltIn.naive_datetime.("1999-12-31 23:59:99")
+      ...> Error.reason(e)
+      :invalid_time
+
+      iex> {:error, e} = Data.Parser.BuiltIn.naive_datetime.(123456789)
+      ...> Error.reason(e)
+      :not_a_naive_datetime
+  """
   @spec naive_datetime() :: Parser.t(NaiveDateTime.t(), Error.t())
   def naive_datetime do
     fn

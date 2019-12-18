@@ -10,7 +10,7 @@ defmodule Data.MixProject do
       elixir: "~> 1.7",
       package: package(),
       start_permanent: Mix.env() == :prod,
-      version: "0.3.0"
+      version: "0.4.1"
     ]
   end
 
@@ -23,7 +23,7 @@ defmodule Data.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 0.5.1", runtime: false},
-      {:error, "~> 0.1.0"},
+      {:error, "~> 0.3.1"},
       {:ex_doc, "~> 0.21.2", only: :dev, runtime: false},
       {:fe, "~> 0.1.2"}
     ]

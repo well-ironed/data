@@ -1,126 +1,61 @@
 defmodule Data.Constructor do
-  defstruct [:fields]
+  alias Data.Parser.KV
+  alias FE.Result
 
-  defmodule Field do
-    defstruct [:name, :parser, :optional, :default]
-  end
+  @doc """
+  Define and run a smart constructor on a Key-Value input, returning either
+  well-defined `structs` or descriptive errors. The motto: parse, don't validate!
 
-  alias Data.Parser
-  alias Error
-  alias FE.{Maybe, Result}
+  Given a list of `Data.Parser.KV.field_spec/2`s, a `module`, and an input
+  `map` or `Keyword`, create and run a parser which will either parse
+  successfully and return an `{:ok, %__MODULE__{}}` struct, or fail and return
+  an `{:error, Error.t}` with details about the parsing failure.
 
-  @type input :: map | Keyword.t()
-  @type field_name :: atom()
-  @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
-  @type field_spec(a, b) ::
-          {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(b)}
+  ## Examples
+      iex> defmodule SensorReading do
+      ...>   defstruct [:sensor_id, :microfrobs, :datetime]
+      ...>   def new(input) do
+      ...>     Data.Constructor.struct([
+      ...>      {:sensor_id, Data.Parser.BuiltIn.string()},
+      ...>      {:microfrobs, Data.Parser.BuiltIn.integer()},
+      ...>      {:datetime, Data.Parser.BuiltIn.datetime()}],
+      ...>     __MODULE__,
+      ...>     input)
+      ...>   end
+      ...> end
+      ...>
+      ...> {:ok, reading} = SensorReading.new(sensor_id: "1234-1234-1234",
+      ...>                                    microfrobs: 23,
+      ...>                                    datetime: ~U[2018-12-20 12:00:00Z])
+      ...>
+      ...> reading.datetime
+      ~U[2018-12-20 12:00:00Z]
+      ...>
+      ...> reading.microfrobs
+      23
+      ...> reading.sensor_id
+      "1234-1234-1234"
+      ...> {:error, e} = SensorReading.new(%{"sensor_id" => nil,
+      ...>                                   "microfrobs" => 23,
+      ...>                                   "datetime" => "2018-12-20 12:00:00Z"})
+      ...> Error.reason(e)
+      :failed_to_parse_field
+      ...> Error.details(e)
+      %{field: :sensor_id,
+        input: %{"datetime" => "2018-12-20 12:00:00Z",
+                 "microfrobs" => 23,
+                 "sensor_id" => nil}}
+      ...> {:just, inner_error} = Error.caused_by(e)
+      ...> Error.reason(inner_error)
+      :not_a_string
 
-  @opaque field(a, b) :: %Field{
-            name: field_name(),
-            parser: Parser.t(a, b),
-            optional: boolean(),
-            default: Maybe.t(b)
-          }
-  @opaque t(a, b) :: %__MODULE__{fields: [field(a, b)]}
-
-  @spec struct([field_spec(any, any)], module(), input) :: Result.t(struct, Error.t())
+  """
+  @spec struct([KV.field_spec(any, any)], module(), KV.input) :: Result.t(struct, Error.t())
   def struct(field_specs, struct_module, input) do
     field_specs
-    |> new()
-    |> Result.and_then(&run(&1, input))
+    |> KV.new()
+    |> Result.and_then(fn parser -> parser.(input) end)
     |> Result.map(&struct(struct_module, &1))
   end
 
-  @spec new([field_spec(a, b)]) :: Result.t(t(a, b), Error.t()) when a: var, b: var
-  def new(field_specs) when is_list(field_specs) do
-    Result.ok([])
-    |> Result.fold(field_specs, &parse_field_spec/2)
-    |> Result.map(&%__MODULE__{fields: &1})
-  end
-
-  def new(_other) do
-    Error.domain(:not_a_list) |> Result.error()
-  end
-
-  @spec run(t(any, any), input) :: Result.t(map, Error.t())
-  def run(%__MODULE__{} = constructor, input) when is_list(input) do
-    case Keyword.keyword?(input) do
-      true -> run(constructor, Enum.into(input, %{}))
-      false -> Error.domain(:invalid_input, %{input: input}) |> Result.error()
-    end
-  end
-
-  def run(%__MODULE__{fields: fields}, input) when is_map(input) do
-    Result.ok([])
-    |> Result.fold(fields, &run_for_field(&1, &2, input))
-    |> Result.map(&Enum.into(&1, %{}))
-  end
-
-  def run(_constructor, other) do
-    Error.domain(:invalid_input, %{input: other}) |> Result.error()
-  end
-
-  defp parse_field_spec({field_name, parser}, acc) do
-    field = %Field{name: field_name, parser: parser, optional: false, default: Maybe.nothing()}
-    Result.ok([field | acc])
-  end
-
-  defp parse_field_spec({field_name, parser, opts} = spec, acc) do
-    optional = Keyword.get(opts, :optional, false)
-
-    default =
-      case Keyword.fetch(opts, :default) do
-        {:ok, default} -> Maybe.just(default)
-        :error -> Maybe.nothing()
-      end
-
-    case {optional, default} do
-      {true, {:just, _}} ->
-        Error.domain(:invalid_field_spec, %{spec: spec}) |> Result.error()
-
-      {_, _} ->
-        field = %Field{name: field_name, parser: parser, optional: optional, default: default}
-        Result.ok([field | acc])
-    end
-  end
-
-  defp parse_field_spec(other, _) do
-    Error.domain(:invalid_field_spec, %{spec: other}) |> Result.error()
-  end
-
-  defp run_for_field(%Field{name: name} = field, acc, input) do
-    case Map.fetch(input, name) do
-      {:ok, value} ->
-        existing_field(field, acc, value, input)
-
-      :error ->
-        missing_field(field, acc, input)
-    end
-  end
-
-  defp existing_field(%Field{name: name, parser: parser, optional: optional}, acc, value, input) do
-    parser.(value)
-    |> Result.map(fn parsed_value ->
-      case optional do
-        true -> [{name, Maybe.just(parsed_value)} | acc]
-        false -> [{name, parsed_value} | acc]
-      end
-    end)
-    |> Result.map_error(fn error ->
-      Error.map_details(error, &Map.merge(&1, %{field: name, input: input}))
-    end)
-  end
-
-  defp missing_field(%Field{name: name, optional: optional, default: default}, acc, input) do
-    case {optional, default} do
-      {true, :nothing} ->
-        Result.ok([{name, Maybe.nothing()} | acc])
-
-      {false, {:just, default_value}} ->
-        Result.ok([{name, default_value} | acc])
-
-      {false, :nothing} ->
-        Error.domain(:field_not_found_in_input, %{field: name, input: input}) |> Result.error()
-    end
-  end
 end
