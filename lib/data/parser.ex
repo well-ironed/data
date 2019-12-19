@@ -92,6 +92,7 @@ defmodule Data.Parser do
       end
     end
   end
+
   def one_of(elements, default), do: one_of(elements, fn _ -> default end)
 
   @doc """
@@ -130,7 +131,7 @@ defmodule Data.Parser do
       %{failed_element: :b}
 
   """
-  @spec list(Parser.t(a, Error.t())) :: Parser.t([a], Error.t()) when a: var
+  @spec list(t(a, Error.t())) :: t([a], Error.t()) when a: var
   def list(p) do
     fn
       xs when is_list(xs) ->
@@ -174,7 +175,7 @@ defmodule Data.Parser do
       :empty_list
 
   """
-  @spec nonempty_list(Parser.t(a, Error.t())) :: Parser.t(nonempty_list(a), Error.t()) when a: var
+  @spec nonempty_list(t(a, Error.t())) :: t(nonempty_list(a), Error.t()) when a: var
   def nonempty_list(p) do
     fn
       [] -> Error.domain(:empty_list) |> Result.error()
@@ -221,7 +222,7 @@ defmodule Data.Parser do
       %{failed_element: :b}
 
   """
-  @spec set(Parser.t(a, Error.t())) :: Parser.t(Set.t(a), Error.t()) when a: var
+  @spec set(t(a, Error.t())) :: t(Set.t(a), Error.t()) when a: var
   def set(p) do
     fn
       %Set{} = set ->

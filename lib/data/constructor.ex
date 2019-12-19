@@ -50,12 +50,11 @@ defmodule Data.Constructor do
       :not_a_string
 
   """
-  @spec struct([KV.field_spec(any, any)], module(), KV.input) :: Result.t(struct, Error.t())
+  @spec struct([KV.field_spec(any, any)], module(), KV.input()) :: Result.t(struct, Error.t())
   def struct(field_specs, struct_module, input) do
     field_specs
     |> KV.new()
     |> Result.and_then(fn parser -> parser.(input) end)
     |> Result.map(&struct(struct_module, &1))
   end
-
 end

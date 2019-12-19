@@ -39,10 +39,9 @@ defmodule Data.ParserTest do
     end
 
     test "returns parser that maps default error on the input if run on a value that's not listed" do
-      parser = Parser.one_of([:a, :b], fn x -> "bad value: #{inspect x}" end)
+      parser = Parser.one_of([:a, :b], fn x -> "bad value: #{inspect(x)}" end)
       assert parser.(:c) == {:error, "bad value: :c"}
     end
-
   end
 
   describe "maybe/1" do
@@ -135,7 +134,6 @@ defmodule Data.ParserTest do
   end
 
   describe "kv/1" do
-
     test "an empty kv run on an empty input returns empty map" do
       {:ok, kv} = Parser.kv([])
       assert kv.(%{}) == {:ok, %{}}
@@ -161,7 +159,7 @@ defmodule Data.ParserTest do
     test "a kv with required field fails if field doesn't exist in nonempty input" do
       {:ok, kv} = Parser.kv([{:count, integer()}])
       assert {:error, error} = kv.(%{a: 1})
-      assert {:error, ^error} = kv.([a: 1])
+      assert {:error, ^error} = kv.(a: 1)
 
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :field_not_found_in_input
@@ -174,8 +172,7 @@ defmodule Data.ParserTest do
       assert {:error, ^error} = kv.(count: "123")
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :failed_to_parse_field
-      assert %{field: :count,
-               input: %{count: "123"}} = Error.details(error)
+      assert %{field: :count, input: %{count: "123"}} = Error.details(error)
 
       assert {:just, field_error} = Error.caused_by(error)
       assert Error.reason(field_error) == :not_an_integer
@@ -211,7 +208,7 @@ defmodule Data.ParserTest do
     end
 
     test "a kv with field with default value passes with that value " <>
-      "if field doesn't exist" do
+           "if field doesn't exist" do
       {:ok, kv} = Parser.kv([{:age, integer(), default: 21}])
       assert kv.(%{}) == {:ok, %{age: 21}}
       assert kv.([]) == {:ok, %{age: 21}}
@@ -258,8 +255,8 @@ defmodule Data.ParserTest do
       {:ok, inner_kv} = Parser.kv([{:inner, integer()}])
       {:ok, kv} = Parser.kv([{:outer, inner_kv}])
       assert kv.(%{outer: %{inner: 42}}) == {:ok, %{outer: %{inner: 42}}}
-      assert kv.([outer: %{inner: 42}]) == {:ok, %{outer: %{inner: 42}}}
-      assert kv.([outer: [inner: 42]]) == {:ok, %{outer: %{inner: 42}}}
+      assert kv.(outer: %{inner: 42}) == {:ok, %{outer: %{inner: 42}}}
+      assert kv.(outer: [inner: 42]) == {:ok, %{outer: %{inner: 42}}}
       assert kv.(%{outer: [inner: 42]}) == {:ok, %{outer: %{inner: 42}}}
     end
 
@@ -280,9 +277,7 @@ defmodule Data.ParserTest do
       assert {:just, field_error} = Error.caused_by(inner_error)
       assert Error.kind(field_error) == :domain
       assert Error.reason(field_error) == :not_an_integer
-
     end
-
   end
 
   describe "kv/1 bad input" do
@@ -302,5 +297,4 @@ defmodule Data.ParserTest do
       assert Error.details(error) == %{input: [:x, :y]}
     end
   end
-
 end

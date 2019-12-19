@@ -59,7 +59,6 @@ defmodule Data.Parser.BuiltIn do
     end
   end
 
-
   @doc """
 
   Creates a parser that successfully parses `boolean`s, and returns the

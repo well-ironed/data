@@ -89,7 +89,6 @@ defmodule Data.Parser.KV do
   """
   @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
 
-
   @typedoc """
   A 2-tuple or 3-tuple describing the field to parse and parsing semantics.
 
@@ -170,7 +169,7 @@ defmodule Data.Parser.KV do
     Error.domain(:not_a_list) |> Result.error()
   end
 
-  @spec run([Field.t()], input) :: Result.t(map, Error.t())
+  @spec run([field(any, any)], input) :: Result.t(map, Error.t())
   defp run(fields, input) when is_list(input) do
     case Keyword.keyword?(input) do
       true -> run(fields, Enum.into(input, %{}))
@@ -230,6 +229,7 @@ defmodule Data.Parser.KV do
     case Map.fetch(input, key) do
       :error ->
         Map.fetch(input, Atom.to_string(key))
+
       found ->
         found
     end
@@ -245,8 +245,12 @@ defmodule Data.Parser.KV do
     end)
     |> Result.map_error(fn error ->
       error
-      |> Error.wrap(Error.domain(:failed_to_parse_field,
-          %{field: name, input: input}))
+      |> Error.wrap(
+        Error.domain(
+          :failed_to_parse_field,
+          %{field: name, input: input}
+        )
+      )
     end)
   end
 
