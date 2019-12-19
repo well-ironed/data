@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/elixir:1.9.1
+      - image: circleci/elixir:1.9.4
         environment:
           MIX_ENV: test
 
@@ -10,6 +10,20 @@ jobs:
 
     steps:
       - checkout
+
+      - restore_cache:
+          keys:
+              - data-plt-{{ checksum "mix.lock" }}
+
       - run: mix local.hex --force
+      - run: mix local.rebar --force
+
       - run: mix deps.get
+      - run: mix format --check-formatted
       - run: mix test
+
+      - run: mix dialyzer
+      - save_cache:
+          key: data-plt-{{ checksum "mix.lock" }}
+          paths:
+              - "_build/test"
