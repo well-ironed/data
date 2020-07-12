@@ -60,13 +60,53 @@ defmodule Data.Parser.KV do
   case, the output will contain the key-value pair: `country: "Canada"`
 
 
+  ### `{:country, MyApp.country_parser(), from: :countryName}`
+
+  This spec says that the parser will use the data from `:countryName` in the
+  input map. If the value under this key satisfies the
+  `MyApp.country_parser()`, then the resulting value will be placed under the
+  `:country` field.
+
+  Note that the `from` keyname MUST always be specified as an atom, but it will
+  be applied automatically to string keys. If the input contains *both* a
+  string key and an atom key, the atom key will take priority.
+
+
+  ### `{:point, MyApp.point_parser(), recurse: true}`
+
+  Sometimes you want to run several different parsers on the same input
+  map. For example, let's say your input looks like this:
+
+  ```
+  %{x: 12,
+    y: -10,
+    value: 34,
+    name: "exploding_barrel"}
+  ```
+
+  But the data structure you want after parsing looks like this:
+
+  ```
+  %{point: %{x: 12, y: -10},
+    value: 34,
+    name: "exploding_barrel"}
+  ```
+
+  And you have MyApp.point_parser() which accepts a map with `:x` and `:y`
+  integer keys and constructs `%{x: integer(), y: integer()}`.
+
+  You can define a field_spec with `recurse: true` and have that particular
+  parser get run on its *parent input map*, not on the value of a field.
+
+
+
   """
   alias Data.Parser
   alias FE.{Maybe, Result}
 
   defmodule Field do
     @moduledoc false
-    defstruct [:name, :parser, :optional, :default]
+    defstruct [:name, :from, :parser, :optional, :default, :recurse]
   end
 
   @typedoc """
@@ -104,9 +144,11 @@ defmodule Data.Parser.KV do
   """
   @opaque field(a, b) :: %Field{
             name: field_name(),
+            from: field_name(),
             parser: Parser.t(a, b),
             optional: boolean(),
-            default: Maybe.t(b)
+            default: Maybe.t(b),
+            recurse: boolean()
           }
 
   @doc """
@@ -157,6 +199,34 @@ defmodule Data.Parser.KV do
       ...> Error.reason(inner_error)
       :not_an_integer
 
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), from: :theAValue}])
+      ...> p.(%{theAValue: 123})
+      {:ok, %{a: 123}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), from: :aStringKey}])
+      ...> p.(%{"aStringKey" => 1234})
+      {:ok, %{a: 1234}}
+
+      iex> {:ok, point} = Data.Parser.KV.new([{:x, Data.Parser.BuiltIn.integer()}, {:y, Data.Parser.BuiltIn.integer()}])
+      ...> {:ok, item} = Data.Parser.KV.new([{:point, point, recurse: true}, {:value, Data.Parser.BuiltIn.integer()}])
+      ...> item.(%{x: 1, y: -1, value: 34})
+      {:ok, %{value: 34, point: %{x: 1, y: -1}}}
+
+      iex> {:ok, point} = Data.Parser.KV.new([{:x, Data.Parser.BuiltIn.integer()}, {:y, Data.Parser.BuiltIn.integer()}])
+      ...> {:ok, item} = Data.Parser.KV.new([{:point, point, recurse: true}, {:value, Data.Parser.BuiltIn.integer()}])
+      ...> {:error, e} = item.(%{x: "wrong", y: -1, value: 34})
+      ...> {:just, e2} = e.caused_by
+      ...> e2.reason
+      :failed_to_parse_field
+
+
+      iex> {:ok, point} = Data.Parser.KV.new([{:x, Data.Parser.BuiltIn.integer()}, {:y, Data.Parser.BuiltIn.integer()}])
+      ...> {:ok, item} = Data.Parser.KV.new([{:point, point, recurse: true}, {:value, Data.Parser.BuiltIn.integer()}])
+      ...> {:error, e} = item.(%{y: -1, value: 34})
+      ...> {:just, e2} = e.caused_by
+      ...> e2.reason
+      :field_not_found_in_input
+
   """
   @spec new([field_spec(a, b)]) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
   def new(field_specs) when is_list(field_specs) do
@@ -188,12 +258,22 @@ defmodule Data.Parser.KV do
   end
 
   defp parse_field_spec({field_name, parser}, acc) do
-    field = %Field{name: field_name, parser: parser, optional: false, default: Maybe.nothing()}
+    field = %Field{
+      name: field_name,
+      from: field_name,
+      parser: parser,
+      optional: false,
+      default: Maybe.nothing(),
+      recurse: false
+    }
+
     Result.ok([field | acc])
   end
 
   defp parse_field_spec({field_name, parser, opts} = spec, acc) do
     optional = Keyword.get(opts, :optional, false)
+    recurse = Keyword.get(opts, :recurse, false)
+    from = Keyword.get(opts, :from, field_name)
 
     default =
       case Keyword.fetch(opts, :default) do
@@ -206,7 +286,15 @@ defmodule Data.Parser.KV do
         Error.domain(:invalid_field_spec, %{spec: spec}) |> Result.error()
 
       {_, _} ->
-        field = %Field{name: field_name, parser: parser, optional: optional, default: default}
+        field = %Field{
+          name: field_name,
+          from: from,
+          parser: parser,
+          optional: optional,
+          default: default,
+          recurse: recurse
+        }
+
         Result.ok([field | acc])
     end
   end
@@ -215,14 +303,18 @@ defmodule Data.Parser.KV do
     Error.domain(:invalid_field_spec, %{spec: other}) |> Result.error()
   end
 
-  defp run_for_field(%Field{name: name} = field, acc, input) do
-    case fetch_key(input, name) do
+  defp run_for_field(%Field{from: from, recurse: false} = field, acc, input) do
+    case fetch_key(input, from) do
       {:ok, value} ->
         existing_field(field, acc, value, input)
 
       :error ->
         missing_field(field, acc, input)
     end
+  end
+
+  defp run_for_field(%Field{recurse: true} = field, acc, input) do
+    existing_field(field, acc, input, input)
   end
 
   defp fetch_key(%{} = input, key) when is_atom(key) do
