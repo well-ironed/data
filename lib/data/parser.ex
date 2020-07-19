@@ -278,4 +278,48 @@ defmodule Data.Parser do
         ok(nothing())
     end
   end
+
+  @doc """
+
+  Takes a list of parsers and creates a parser that returns the first
+  successful parse result, or an error listing the parsers and the failed
+  input.
+
+  ## Examples
+
+      iex> Data.Parser.first(
+      ...> [Data.Parser.BuiltIn.integer(),
+      ...>  Data.Parser.BuiltIn.boolean()]).(true)
+      {:ok, true}
+
+      iex> Data.Parser.first(
+      ...> [Data.Parser.BuiltIn.integer(),
+      ...>  Data.Parser.BuiltIn.boolean()]).(1)
+      {:ok, 1}
+
+      iex> {:error, e} = Data.Parser.first(
+      ...>   [Data.Parser.BuiltIn.integer(),
+      ...>    Data.Parser.BuiltIn.boolean()]).(:atom)
+      ...> Error.reason(e)
+      :no_parser_applies
+      ...> Error.details(e).input
+      :atom
+
+  """
+  @spec first(list(t(any(), any()))) :: t(any(), any())
+  def first(parsers) when is_list(parsers) do
+    fn
+      input ->
+        Enum.find_value(
+          parsers,
+          error(Error.domain(:no_parser_applies, %{input: input, parsers: parsers})),
+          fn parser ->
+            case parser.(input) do
+              {:ok, _} = success -> success
+              _ -> false
+            end
+          end
+        )
+    end
+  end
 end
