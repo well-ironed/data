@@ -297,4 +297,27 @@ defmodule Data.ParserTest do
       assert Error.details(error) == %{input: [:x, :y]}
     end
   end
+
+  describe "first/1 w/ good input" do
+    test "the first parser can fire" do
+      assert Parser.first([integer(), string()]).(1) == {:ok, 1}
+    end
+
+    test "the second parser can fire" do
+      assert Parser.first([integer(), string()]).("hello") == {:ok, "hello"}
+    end
+  end
+
+  describe "first/1 w/ bad input" do
+    test "an error is created if there are no parsers to run" do
+      assert {:error, e} = Parser.first([]).(1)
+      assert %{input: 1, parsers: []} = Error.details(e)
+    end
+
+    test "an error is created if no parsers succeed" do
+      {int_parser, string_parser} = {integer(), string()}
+      assert {:error, e} = Parser.first([int_parser, string_parser]).(:atom_boy)
+      assert %{input: :atom_boy, parsers: [^int_parser, ^string_parser]} = Error.details(e)
+    end
+  end
 end
