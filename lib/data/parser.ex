@@ -287,17 +287,17 @@ defmodule Data.Parser do
 
   ## Examples
 
-      iex> Data.Parser.first(
+      iex> Data.Parser.union(
       ...> [Data.Parser.BuiltIn.integer(),
       ...>  Data.Parser.BuiltIn.boolean()]).(true)
       {:ok, true}
 
-      iex> Data.Parser.first(
+      iex> Data.Parser.union(
       ...> [Data.Parser.BuiltIn.integer(),
       ...>  Data.Parser.BuiltIn.boolean()]).(1)
       {:ok, 1}
 
-      iex> {:error, e} = Data.Parser.first(
+      iex> {:error, e} = Data.Parser.union(
       ...>   [Data.Parser.BuiltIn.integer(),
       ...>    Data.Parser.BuiltIn.boolean()]).(:atom)
       ...> Error.reason(e)
@@ -306,8 +306,8 @@ defmodule Data.Parser do
       :atom
 
   """
-  @spec first(list(t(any(), any()))) :: t(any(), any())
-  def first(parsers) when is_list(parsers) do
+  @spec union(list(t(any(), any()))) :: t(any(), any())
+  def union(parsers) when is_list(parsers) do
     fn
       input ->
         Enum.find_value(
