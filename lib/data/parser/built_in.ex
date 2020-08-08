@@ -231,4 +231,61 @@ defmodule Data.Parser.BuiltIn do
         Error.domain(:not_a_naive_datetime) |> Result.error()
     end
   end
+
+  @doc """
+
+  Creates a parser that successfully parses strings representing either
+  `Integer`s or `Float`s.
+
+  Returns a domain error detailing the parse failure on bad inputs.
+
+  Look out! Partial results, such as that of Integer.parse("abc123"), still
+  count as errors!
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.string_of(Float).("1.1")
+      {:ok, 1.1}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.string_of(Float).("abc")
+      ...> Error.reason(e)
+      :not_parseable_as_float
+      ...> Error.details(e)
+      %{input: "abc", native_parser_output: :error}
+
+      iex> Data.Parser.BuiltIn.string_of(Integer).("1234567890")
+      {:ok, 1234567890}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.string_of(Integer).("123abc")
+      ...> Error.reason(e)
+      :not_parseable_as_integer
+      ...> Error.details(e)
+      %{input: "123abc", native_parser_output: {123, "abc"}}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.string_of(Integer).([])
+      ...> Error.reason(e)
+      :not_a_string
+
+  """
+  @spec string_of(Integer | Float) :: Parser.t(integer() | float(), Error.t())
+  def string_of(mod) when mod in [Integer, Float] do
+    mod_downcase = String.downcase("#{inspect(mod)}")
+
+    fn input ->
+      case is_binary(input) && mod.parse(input) do
+        {n, ""} ->
+          Result.ok(n)
+
+        false ->
+          Error.domain(:not_a_string, %{input: input})
+          |> Result.error()
+
+        output ->
+          Error.domain(
+            :"not_parseable_as_#{mod_downcase}",
+            %{input: input, native_parser_output: output}
+          )
+          |> Result.error()
+      end
+    end
+  end
 end

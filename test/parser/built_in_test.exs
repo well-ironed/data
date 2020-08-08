@@ -117,4 +117,59 @@ defmodule Data.Parser.BuiltInTest do
       assert Error.reason(error) == :not_a_naive_datetime
     end
   end
+
+  describe "string_of(Integer)" do
+    test "successfully parses integer strings" do
+      assert string_of(Integer).("0") == {:ok, 0}
+      assert string_of(Integer).("-10") == {:ok, -10}
+    end
+
+    test "returns error if applied to non-strings" do
+      assert {:error, error} = string_of(Integer).(:atom)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_string
+    end
+
+    test "returns error if string is not a representation of an integer" do
+      assert {:error, error} = string_of(Integer).("abc")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_parseable_as_integer
+      assert Error.details(error) == %{input: "abc", native_parser_output: :error}
+    end
+
+    test "returns error if string is a partial representation of an integer" do
+      assert {:error, error} = string_of(Integer).("0d")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_parseable_as_integer
+      assert Error.details(error) == %{input: "0d", native_parser_output: {0, "d"}}
+    end
+  end
+
+  describe "string_of(Float)" do
+    test "successfully parses Float strings" do
+      assert string_of(Float).("0.0") == {:ok, 0.0}
+      assert string_of(Float).("-10.0") == {:ok, -10.0}
+      assert string_of(Float).("1") == {:ok, 1.0}
+    end
+
+    test "returns error if applied to non-strings" do
+      assert {:error, error} = string_of(Float).([])
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_string
+    end
+
+    test "returns error if string is not a representation of a Float" do
+      assert {:error, error} = string_of(Float).("abc")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_parseable_as_float
+      assert Error.details(error) == %{input: "abc", native_parser_output: :error}
+    end
+
+    test "returns error if string is a partial representation of a Float" do
+      assert {:error, error} = string_of(Float).("0.0F")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_parseable_as_float
+      assert Error.details(error) == %{input: "0.0F", native_parser_output: {0.0, "F"}}
+    end
+  end
 end
