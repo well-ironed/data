@@ -7,8 +7,8 @@ defmodule Data.ParserTest do
 
   alias Data.Parser
   alias MapSet, as: Set
-  describe "predicate/1" do
 
+  describe "predicate/1" do
     test "returns parser that returns the input value if predicate is true" do
       parser = Parser.predicate(fn x -> x > 2 end)
       assert parser.(3) == {:ok, 3}

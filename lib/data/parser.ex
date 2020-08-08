@@ -55,9 +55,12 @@ defmodule Data.Parser do
       case p.(x) do
         true ->
           Result.ok(x)
+
         _ ->
-          Error.domain(:predicate_not_satisfied,
-            %{predicate: p, input: x})
+          Error.domain(
+            :predicate_not_satisfied,
+            %{predicate: p, input: x}
+          )
           |> Result.error()
       end
     end
