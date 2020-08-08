@@ -23,6 +23,48 @@ defmodule Data.Parser do
 
   @doc """
 
+  Takes a boolean function `p` (the predicate), and returns a parser
+  that parses successfully those values for which `p` is `true`.
+
+  If the predicate returns `false` the parser will return a domain `Error`
+  with the input value and the predicate functions listed in the error details.
+
+
+  ## Examples
+      iex> {:error, e} = Data.Parser.predicate(&String.valid?/1).('charlists are not ok')
+      ...> e.reason
+      :predicate_not_satisfied
+      ...> e.details
+      %{input: 'charlists are not ok', predicate: &String.valid?/1}
+
+      iex> Data.Parser.predicate(&String.valid?/1).("this is fine")
+      {:ok, "this is fine"}
+
+      iex> Data.Parser.predicate(&(&1<10)).(5)
+      {:ok, 5}
+
+      iex> {:error, e} = Data.Parser.predicate(&(&1<10)).(55)
+      ...> e.details.input
+      55
+
+
+  """
+  @spec predicate((a -> boolean())) :: t(a, Error.t()) when a: var, b: var
+  def predicate(p) when is_function(p, 1) do
+    fn x ->
+      case p.(x) do
+        true ->
+          Result.ok(x)
+        _ ->
+          Error.domain(:predicate_not_satisfied,
+            %{predicate: p, input: x})
+          |> Result.error()
+      end
+    end
+  end
+
+  @doc """
+
   Takes a boolean function `p` (the predicate) and a default value, and returns
   a parser that parses successfully those values for which `p` is `true`.
 
