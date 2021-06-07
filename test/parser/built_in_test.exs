@@ -45,6 +45,22 @@ defmodule Data.Parser.BuiltInTest do
     end
   end
 
+  describe "atom/0" do
+    test "successfully parses :atom" do
+      assert atom().(:atom) == {:ok, :atom}
+    end
+
+    test "successfully parses :other_atom" do
+      assert atom().(:other_atom) == {:ok, :other_atom}
+    end
+
+    test "returns error if something other than an atom is passed" do
+      assert {:error, error} = atom().("x")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_an_atom
+    end
+  end
+
   describe "date/0" do
     test "successfully parses Date" do
       d = ~D[2019-11-20]
