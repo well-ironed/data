@@ -10,4 +10,4 @@ Currently, this library contains 3 major components:
    based on `Data.Parser`s.
 
 
-For deatailed documentation, see [hex.pm](https://hexdocs.pm/data/readme.html).
+For detailed documentation, see [hex.pm](https://hexdocs.pm/data/readme.html).

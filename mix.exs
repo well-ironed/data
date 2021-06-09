@@ -10,7 +10,7 @@ defmodule Data.MixProject do
       elixir: "~> 1.7",
       package: package(),
       start_permanent: Mix.env() == :prod,
-      version: "0.4.5"
+      version: "0.4.6"
     ]
   end
 
