@@ -91,6 +91,36 @@ defmodule Data.Parser.BuiltIn do
 
   @doc """
 
+  Creates a parser that successfully parses `atom`s, and returns the
+  domain error `:not_an_atom` for all other inputs.
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.atom().(:atom)
+      {:ok, :atom}
+
+      iex> Data.Parser.BuiltIn.atom().(:other_atom)
+      {:ok, :other_atom}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.atom().(1.0)
+      ...> Error.reason(e)
+      :not_an_atom
+
+
+      iex> {:error, e} = Data.Parser.BuiltIn.atom().(["truth", "or", "dare"])
+      ...> Error.reason(e)
+      :not_an_atom
+
+  """
+  @spec atom() :: Parser.t(atom(), Error.t())
+  def atom do
+    fn
+      atom when is_atom(atom) -> Result.ok(atom)
+      _other -> Error.domain(:not_an_atom) |> Result.error()
+    end
+  end
+
+  @doc """
+
   Creates a parser that successfully parses `Date.t`s or `String.t` that
   represent legitimate `Date.t`s.
 
