@@ -17,6 +17,18 @@ defmodule Data.Parser.BuiltInTest do
     end
   end
 
+  describe "float/0" do
+    test "returns the same float as passed" do
+      assert float().(123.45) == {:ok, 123.45}
+    end
+
+    test "returns an error if something other than a float is passed" do
+      assert {:error, error} = float().("123.45")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_float
+    end
+  end
+
   describe "string/0" do
     test "returns an error if something other than a binary is passed" do
       assert {:error, error} = string().(123)
