@@ -1,6 +1,5 @@
 defmodule Data.Enum.Test do
   use ExUnit.Case, async: true
-  doctest Data.Enum
 
   describe "atomize_keys!/1" do
     test "returns keyword list with known atom keys for string-keyed map" do

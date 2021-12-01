@@ -34,6 +34,32 @@ defmodule Data.Parser.BuiltIn do
 
   @doc """
 
+  Creates a parser that successfully parses `float`s, and returns the
+  domain error `:not_a_float` for all other inputs.
+
+  ## Examples
+      iex> Data.Parser.BuiltIn.float().(1.0)
+      {:ok, 1.0}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.float().(1)
+      ...> Error.reason(e)
+      :not_a_float
+
+      iex> {:error, e} = Data.Parser.BuiltIn.float().(:hi)
+      ...> Error.reason(e)
+      :not_a_float
+
+  """
+  @spec float() :: Parser.t(float, Error.t())
+  def float do
+    fn
+      int when is_float(int) -> Result.ok(int)
+      _other -> Error.domain(:not_a_float) |> Result.error()
+    end
+  end
+
+  @doc """
+
   Creates a parser that succesfully parses `String.t`s (a.k.a binaries), and
   returns the domain error `:not_a_string` for all other inputs.
 
