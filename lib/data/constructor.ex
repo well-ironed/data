@@ -125,10 +125,20 @@ defmodule Data.Constructor do
       ...>
       ...> {:error, e} = SensorReading.update(reading3,
       ...>                                    microfrobs: [1,2,3])
-      ...> Error.reason(e)
-      :failed_to_parse_field
-      ...> Error.details(e)
-      %{key: :microfrobs, value: [1,2,3]}
+      ...> :invalid_parameter = Error.reason(e)
+      ...> %{key: :microfrobs, value: [1,2,3]} = Error.details(e)
+      ...>
+      ...>
+      ...> {:error, e} = SensorReading.update(%{"my" => "special", "map" => "type"},
+      ...>                                    microfrobs: 25,
+      ...>                                    datetime: ~U[2018-12-20 13:00:00Z])
+      ...> :struct_type_mismatch = Error.reason(e)
+      ...> %{expecting: Data.ConstructorTest.SensorReading, got: %{"map" => "type", "my" => "special"}} = Error.details(e)
+
+
+
+
+
 
 
 
