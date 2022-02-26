@@ -101,9 +101,23 @@ defmodule Data.ConstructorTest do
       assert Error.details(e) == %{spec: {:bad, 123, :field, [spec: [1, 2, 3]]}}
     end
 
+    test "an update will not be constructed if there are extra input params" <>
+           " not specified in field spec" do
+      {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
+
+      assert {:error, e} =
+               Constructor.update(
+                 Pet.fields(),
+                 Pet,
+                 name: "Rocky",
+                 breed: "Golden Retriever"
+               )
+
+      assert Error.reason(e) == :invalid_parameter
+      assert Error.details(e) == %{key: :breed, value: "Golden Retriever"}
+    end
+
     test "an update will not be constructed if the incoming fields are not parseable" do
-      # TODO it would be nice to get a Review type with all the bad fields,
-      # but for now we fail fast on the first one, like the struct/3 parser.
       {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
 
       assert {:error, e} =
