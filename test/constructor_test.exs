@@ -53,7 +53,7 @@ defmodule Data.ConstructorTest do
     end
 
     test "update can create an update of one field" do
-      {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
+      {:ok, _} = Pet.new(name: "Pooch", spotted: true, price: 1000)
       {:ok, update} = Constructor.update(Pet.fields(), Pet, spotted: false)
       assert is_function(update, 1)
     end
@@ -88,8 +88,6 @@ defmodule Data.ConstructorTest do
     test "an update will not be constructed if the field spec is wrong" do
       # TODO it would be nice to get a Review type with all the bad fields,
       # but for now we fail fast on the first one, like the struct/3 parser.
-      {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
-
       assert {:error, e} =
                Constructor.update(
                  [{:bad, 123, :field, spec: [1, 2, 3]}],
@@ -103,8 +101,6 @@ defmodule Data.ConstructorTest do
 
     test "an update will not be constructed if there are extra input params" <>
            " not specified in field spec" do
-      {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
-
       assert {:error, e} =
                Constructor.update(
                  Pet.fields(),
@@ -118,8 +114,6 @@ defmodule Data.ConstructorTest do
     end
 
     test "an update will not be constructed if the incoming fields are not parseable" do
-      {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
-
       assert {:error, e} =
                Constructor.update(Pet.fields(), Pet,
                  name: :atomic_kitten,

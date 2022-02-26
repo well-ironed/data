@@ -28,26 +28,18 @@ defmodule Data.Constructor do
       ...>                                    microfrobs: 23,
       ...>                                    datetime: ~U[2018-12-20 12:00:00Z])
       ...>
-      ...> reading.datetime
-      ~U[2018-12-20 12:00:00Z]
-      ...>
-      ...> reading.microfrobs
-      23
-      ...> reading.sensor_id
-      "1234-1234-1234"
+      ...> ~U[2018-12-20 12:00:00Z] = reading.datetime
+      ...> 23 = reading.microfrobs
+      ...> "1234-1234-1234" = reading.sensor_id
       ...> {:error, e} = SensorReading.new(%{"sensor_id" => nil,
       ...>                                   "microfrobs" => 23,
       ...>                                   "datetime" => "2018-12-20 12:00:00Z"})
-      ...> Error.reason(e)
-      :failed_to_parse_field
-      ...> Error.details(e)
-      %{field: :sensor_id,
-        input: %{"datetime" => "2018-12-20 12:00:00Z",
-                 "microfrobs" => 23,
-                 "sensor_id" => nil}}
+      ...> :failed_to_parse_field = Error.reason(e)
+      ...>  %{field: :sensor_id, input: %{"datetime" => "2018-12-20 12:00:00Z",
+      ...>                                "microfrobs" => 23,
+      ...>                                "sensor_id" => nil}} = Error.details(e)
       ...> {:just, inner_error} = Error.caused_by(e)
-      ...> Error.reason(inner_error)
-      :not_a_string
+      ...> :not_a_string = Error.reason(inner_error)
 
   """
   @spec struct([KV.field_spec(any, any)], module(), KV.input()) :: Result.t(struct, Error.t())
@@ -83,7 +75,7 @@ defmodule Data.Constructor do
 
 
   ## Examples
-      iex> defmodule SensorReading do
+      iex> defmodule ReadingWComment do
       ...>   defstruct [:sensor_id, :microfrobs, :datetime, :comments]
       ...>
       ...>   defp fields, do: [
@@ -104,43 +96,38 @@ defmodule Data.Constructor do
       ...>   end
       ...> end
       ...>
-      ...> {:ok, reading} = SensorReading.new(sensor_id: "1234-1234-1234",
-      ...>                                    microfrobs: 23,
-      ...>                                    datetime: ~U[2018-12-20 12:00:00Z],
-      ...>                                    comments: "delete me later")
+      ...> {:ok, reading} = ReadingWComment.new(sensor_id: "1234-1234-1234",
+      ...>                                      microfrobs: 23,
+      ...>                                      datetime: ~U[2018-12-20 12:00:00Z],
+      ...>                                      comments: "delete me later")
       ...> "delete me later" = reading.comments
       ...>
       ...>
-      ...> {:ok, reading2} = SensorReading.update(reading,
-      ...>                                    microfrobs: 25,
-      ...>                                    datetime: ~U[2018-12-20 13:00:00Z])
+      ...> {:ok, reading2} = ReadingWComment.update(reading,
+      ...>                                          microfrobs: 25,
+      ...>                                          datetime: ~U[2018-12-20 13:00:00Z])
       ...> ~U[2018-12-20 13:00:00Z] = reading2.datetime
       ...> 25 = reading2.microfrobs
       ...>
       ...>
-      ...> {:ok, reading3} = SensorReading.update(reading2,
-      ...>                                        comments: nil)
+      ...> {:ok, reading3} = ReadingWComment.update(reading2,
+      ...>                                          comments: nil)
       ...> nil = reading3.comments
       ...>
       ...>
-      ...> {:error, e} = SensorReading.update(reading3,
-      ...>                                    microfrobs: [1,2,3])
+      ...> {:error, e} = ReadingWComment.update(reading3,
+      ...>                                      microfrobs: [1,2,3])
       ...> :invalid_parameter = Error.reason(e)
       ...> %{key: :microfrobs, value: [1,2,3]} = Error.details(e)
       ...>
       ...>
-      ...> {:error, e} = SensorReading.update(%{"my" => "special", "map" => "type"},
-      ...>                                    microfrobs: 25,
-      ...>                                    datetime: ~U[2018-12-20 13:00:00Z])
+      ...> {:error, e} = ReadingWComment.update(%{"my" => "special", "map" => "type"},
+      ...>                                      microfrobs: 25,
+      ...>                                      datetime: ~U[2018-12-20 13:00:00Z])
       ...> :struct_type_mismatch = Error.reason(e)
-      ...> %{expecting: Data.ConstructorTest.SensorReading, got: %{"map" => "type", "my" => "special"}} = Error.details(e)
-
-
-
-
-
-
-
+      ...> %{expecting: Data.ConstructorTest.ReadingWComment,
+      ...>   got: %{"map" => "type", "my" => "special"}
+      ...> } = Error.details(e)
 
   """
 
