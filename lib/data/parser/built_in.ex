@@ -8,6 +8,33 @@ defmodule Data.Parser.BuiltIn do
 
   @doc """
 
+  Creates a parser that successfully parses only `nil`. Any other
+  values, including `false` and the atom `:nothing` cause the
+  parser to fail with a domain error of :not_nil
+ 
+  ## Examples
+      iex> Data.Parser.BuiltIn.null().(nil)
+      {:ok, nil}
+
+      iex> {:error, e} = Data.Parser.BuiltIn.null().(1.0)
+      ...> Error.reason(e)
+      :not_nil
+      
+      iex> {:error, e} = Data.Parser.BuiltIn.null().(false)
+      ...> Error.reason(e)
+      :not_nil
+  """
+
+  @spec null() :: Parser.t(nil, Error.t())
+  def null do
+    fn
+      nil -> Result.ok(nil)
+      _other -> Error.domain(:not_nil) |> Result.error()
+    end
+  end
+
+  @doc """
+
   Creates a parser that successfully parses `integer`s, and returns the
   domain error `:not_an_integer` for all other inputs.
 

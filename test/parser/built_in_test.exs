@@ -5,6 +5,19 @@ defmodule Data.Parser.BuiltInTest do
   import Data.Parser.BuiltIn
   alias Error
 
+  describe "null/0" do
+    test "returns nil" do
+      assert null().(nil) == {:ok, nil}
+    end
+
+    test "returns an error if something other than an integer is passed" do
+      assert {:error, error} = null().("123")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_nil
+    end
+    
+  end
+
   describe "integer/0" do
     test "returns the same integer as passed" do
       assert integer().(123) == {:ok, 123}
