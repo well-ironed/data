@@ -58,6 +58,82 @@ defmodule Data.Constructor do
     |> Result.map(&struct(struct_module, &1))
   end
 
+  @doc """
+  Define a smart update function based on a list of field specifications,
+  the struct type to be updated, and a list of input params.
+
+
+  Given a list of `Data.Parser.KV.field_spec/2`s, a `module` (which defines a
+  struct), and an input `map` or `Keyword`, create and `{:ok, &fun/1}` tuple,
+  or fail and return an `{:error, Error.t}` with details about the parsing
+  failure.
+
+  The `&fun/1` in the ok tuple can be applied to any struct as defined by
+  `module`, and will update it with the fields provided in the constructor
+  input.
+
+  The crucial advantage here is that the input parameters are validated
+  according to the provided `Data.Parser.KV.field_spec/2`s, so that using the
+  same list of field_specs for `new/3` and `update/3` will result in
+  correct-by-construction data both from construction and after updates.
+
+  Additionally, if any of the field_specs define a `default:` value, that value
+  will be explicitly allowed in updates for that field, along with the
+  specified type.
+
+
+  ## Examples
+      iex> defmodule SensorReading do
+      ...>   defstruct [:sensor_id, :microfrobs, :datetime, :comments]
+      ...>
+      ...>   defp fields, do: [
+      ...>      {:sensor_id, Data.Parser.BuiltIn.string()},
+      ...>      {:microfrobs, Data.Parser.BuiltIn.integer()},
+      ...>      {:datetime, Data.Parser.BuiltIn.datetime()},
+      ...>      {:comments, Data.Parser.BuiltIn.string(), default: nil}]
+      ...>
+      ...>   def new(input) do
+      ...>     Data.Constructor.struct(fields(), __MODULE__, input)
+      ...>   end
+      ...>
+      ...>   def update(sensor_reading, input) do
+      ...>     case Data.Constructor.update(fields(), __MODULE__, input) do
+      ...>      {:ok, update_fun} -> update_fun.(sensor_reading)
+      ...>      {:error, e} -> {:error, e}
+      ...>     end
+      ...>   end
+      ...> end
+      ...>
+      ...> {:ok, reading} = SensorReading.new(sensor_id: "1234-1234-1234",
+      ...>                                    microfrobs: 23,
+      ...>                                    datetime: ~U[2018-12-20 12:00:00Z],
+      ...>                                    comments: "delete me later")
+      ...> "delete me later" = reading.comments
+      ...>
+      ...>
+      ...> {:ok, reading2} = SensorReading.update(reading,
+      ...>                                    microfrobs: 25,
+      ...>                                    datetime: ~U[2018-12-20 13:00:00Z])
+      ...> ~U[2018-12-20 13:00:00Z] = reading2.datetime
+      ...> 25 = reading2.microfrobs
+      ...>
+      ...>
+      ...> {:ok, reading3} = SensorReading.update(reading2,
+      ...>                                        comments: nil)
+      ...> nil = reading3.comments
+      ...>
+      ...>
+      ...> {:error, e} = SensorReading.update(reading3,
+      ...>                                    microfrobs: [1,2,3])
+      ...> Error.reason(e)
+      :failed_to_parse_field
+      ...> Error.details(e)
+      %{key: :microfrobs, value: [1,2,3]}
+
+
+
+  """
+
   @spec update([KV.field_spec(any, any)], module(), KV.input()) ::
           Result.t(Data.Parser.t(struct, Error.t()), Error.t())
   def update(field_specs, struct_type, params) do
