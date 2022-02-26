@@ -23,9 +23,9 @@ defmodule Data.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
-      {:error, "~> 0.3.1"},
+      {:error, "~> 0.3"},
       {:ex_doc, "~> 0.21.2", only: :dev, runtime: false},
-      {:fe, "~> 0.1.2"}
+      {:fe, "~> 0.1.5"}
     ]
   end
 
