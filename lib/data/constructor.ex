@@ -39,7 +39,8 @@ defmodule Data.Constructor do
       ...>                                "microfrobs" => 23,
       ...>                                "sensor_id" => nil}} = Error.details(e)
       ...> {:just, inner_error} = Error.caused_by(e)
-      ...> :not_a_string = Error.reason(inner_error)
+      ...> Error.reason(inner_error)
+      :not_a_string
 
   """
   @spec struct([KV.field_spec(any, any)], module(), KV.input()) :: Result.t(struct, Error.t())
@@ -125,9 +126,8 @@ defmodule Data.Constructor do
       ...>                                      microfrobs: 25,
       ...>                                      datetime: ~U[2018-12-20 13:00:00Z])
       ...> :struct_type_mismatch = Error.reason(e)
-      ...> %{expecting: Data.ConstructorTest.ReadingWComment,
-      ...>   got: %{"map" => "type", "my" => "special"}
-      ...> } = Error.details(e)
+      ...> Error.details(e)
+      %{expecting: Data.ConstructorTest.ReadingWComment, got: %{"map" => "type", "my" => "special"}}
 
   """
 
