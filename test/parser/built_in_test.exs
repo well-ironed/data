@@ -15,7 +15,6 @@ defmodule Data.Parser.BuiltInTest do
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :not_nil
     end
-    
   end
 
   describe "integer/0" do

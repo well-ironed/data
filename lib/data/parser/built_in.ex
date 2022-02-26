@@ -11,7 +11,7 @@ defmodule Data.Parser.BuiltIn do
   Creates a parser that successfully parses only `nil`. Any other
   values, including `false` and the atom `:nothing` cause the
   parser to fail with a domain error of :not_nil
- 
+
   ## Examples
       iex> Data.Parser.BuiltIn.null().(nil)
       {:ok, nil}
