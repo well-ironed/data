@@ -239,6 +239,81 @@ defmodule Data.Parser.KV do
     Error.domain(:not_a_list) |> Result.error()
   end
 
+  @doc """
+
+  Given one `field_spec`, verify that it is well-formed and
+  return `{:ok, parser}`, where `parser` will accept a `map` or `Keyword` input
+  and attempt to parse that single field out of the map.
+
+
+  Any `field_spec` with default semantics will be 'lifted' to also accept the
+  default value if present under the key.
+
+  Any `field_spec` with optional semantics will be stripped of these, so that
+  it can 'select' only fields which exist.
+
+  If the `field_spec` is not well-formed, return `{:error, Error.t}` with details
+  about the invalid `field_spec`.
+
+  ## Examples
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string()})
+      ...> p.(username: "johndoe")
+      {:ok, %{username: "johndoe"}}
+
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string()})
+      ...> p.(%{"username" => "johndoe"})
+      {:ok, %{username: "johndoe"}}
+
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string(), default: nil})
+      ...> p.(username: nil)
+      {:ok, %{username: nil}}
+
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string(), default: nil})
+      ...> {:error, e} = p.(%{username: [1,2,3]})
+      ...> Error.reason(e)
+      :failed_to_parse_field
+
+
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string(), default: nil})
+      ...> {:error, e} = p.(%{"a" => "b"})
+      ...> Error.reason(e)
+      :field_not_found_in_input
+
+      iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string(), optiona: true})
+      ...> {:error, e} = p.(%{"a" => "b"})
+      ...> Error.reason(e)
+      :field_not_found_in_input
+
+  """
+  @spec one(field_spec(a, b)) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
+  def one(spec) when is_tuple(spec) do
+    import Data.Parser, only: [union: 1, predicate: 1]
+
+    # We merge the declared k/v parser with any "default" semantics, if present, to get a kv which accepts
+    # either the main type or the default value.
+    case parse_field_spec(spec, []) do
+      {:ok, [%Field{} = f]} ->
+        new_parser =
+          case f.default do
+            {:just, default_val} -> union([f.parser, predicate(&(&1 == default_val))])
+            :nothing -> f.parser
+          end
+
+        nf = %Field{
+          f
+          | parser: new_parser,
+            optional: false,
+            default: Maybe.nothing(),
+            recurse: false
+        }
+
+        {:ok, fn input -> run([nf], input) end}
+
+      error ->
+        error
+    end
+  end
+
   @spec run([field(any, any)], input) :: Result.t(map, Error.t())
   defp run(fields, input) when is_list(input) do
     case Keyword.keyword?(input) do

@@ -57,4 +57,38 @@ defmodule Data.Constructor do
     |> Result.and_then(fn parser -> parser.(input) end)
     |> Result.map(&struct(struct_module, &1))
   end
+
+  @spec update([KV.field_spec(any, any)], module(), KV.input()) ::
+          Result.t(Data.Parser.t(struct, Error.t()), Error.t())
+  def update(field_specs, struct_type, params) do
+    import Result, only: [ok: 1, oks: 1, error: 1, and_then: 2, all_ok: 1]
+
+    Enum.map(field_specs, &KV.one/1)
+    |> all_ok()
+    |> and_then(fn parsers ->
+      Enum.map(params, fn {k, v} ->
+        case Enum.map(parsers, & &1.(%{k => v})) |> oks() do
+          [one_parser_applies] -> ok(one_parser_applies)
+          [] -> error(Error.domain(:invalid_parameter, %{key: k, value: v}))
+        end
+      end)
+      |> all_ok()
+    end)
+    |> and_then(fn good_params ->
+      good_param_map = Enum.reduce(good_params, %{}, &Map.merge(&2, &1))
+
+      ok(fn
+        s = %^struct_type{} ->
+          ok(Map.merge(s, good_param_map))
+
+        other_type ->
+          error(
+            Error.domain(
+              :struct_type_mismatch,
+              %{expecting: struct_type, got: other_type}
+            )
+          )
+      end)
+    end)
+  end
 end

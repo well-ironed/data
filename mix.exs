@@ -25,7 +25,8 @@ defmodule Data.MixProject do
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
       {:error, "~> 0.3.1"},
       {:ex_doc, "~> 0.21.2", only: :dev, runtime: false},
-      {:fe, "~> 0.1.2"}
+      # TODO: use newest fe in this an in error
+      {:fe, github: "well-ironed/fe", branch: :master, override: true}
     ]
   end
 
