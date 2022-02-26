@@ -60,7 +60,7 @@ defmodule Data.Constructor do
 
   @doc """
   Define a smart update function based on a list of field specifications,
-  the struct type to be updated, and a list of input params.
+  the struct type to be updated, and a `Keyword` or `map` of input params.
 
 
   Given a list of `Data.Parser.KV.field_spec/2`s, a `module` (which defines a
