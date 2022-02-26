@@ -245,7 +245,6 @@ defmodule Data.Parser.KV do
   return `{:ok, parser}`, where `parser` will accept a `map` or `Keyword` input
   and attempt to parse that single field out of the map.
 
-
   Any `field_spec` with default semantics will be 'lifted' to also accept the
   default value if present under the key.
 
@@ -273,7 +272,6 @@ defmodule Data.Parser.KV do
       ...> Error.reason(e)
       :failed_to_parse_field
 
-
       iex> {:ok, p} = Data.Parser.KV.one({:username, Data.Parser.BuiltIn.string(), default: nil})
       ...> {:error, e} = p.(%{"a" => "b"})
       ...> Error.reason(e)
@@ -288,30 +286,28 @@ defmodule Data.Parser.KV do
   @spec one(field_spec(a, b)) :: Result.t(Parser.t(a, b), Error.t()) when a: var, b: var
   def one(spec) when is_tuple(spec) do
     import Data.Parser, only: [union: 1, predicate: 1]
+    import FE.Result, only: [ok: 1, and_then: 2]
 
     # We merge the declared k/v parser with any "default" semantics, if present, to get a kv which accepts
     # either the main type or the default value.
-    case parse_field_spec(spec, []) do
-      {:ok, [%Field{} = f]} ->
-        new_parser =
-          case f.default do
-            {:just, default_val} -> union([f.parser, predicate(&(&1 == default_val))])
-            :nothing -> f.parser
-          end
+    parse_field_spec(spec, [])
+    |> and_then(fn [%Field{} = f] ->
+      new_parser =
+        case f.default do
+          {:just, default_val} -> union([f.parser, predicate(&(&1 == default_val))])
+          :nothing -> f.parser
+        end
 
-        nf = %Field{
-          f
-          | parser: new_parser,
-            optional: false,
-            default: Maybe.nothing(),
-            recurse: false
-        }
+      nf = %Field{
+        f
+        | parser: new_parser,
+          optional: false,
+          default: Maybe.nothing(),
+          recurse: false
+      }
 
-        {:ok, fn input -> run([nf], input) end}
-
-      error ->
-        error
-    end
+      ok(fn input -> run([nf], input) end)
+    end)
   end
 
   @spec run([field(any, any)], input) :: Result.t(map, Error.t())
