@@ -64,11 +64,11 @@ defmodule Data.Constructor do
 
 
   Given a list of `Data.Parser.KV.field_spec/2`s, a `module` (which defines a
-  struct), and an input `map` or `Keyword`, create and `{:ok, &fun/1}` tuple,
+  struct), and an input `map` or `Keyword`, create an `{:ok, &fun/1}` tuple,
   or fail and return an `{:error, Error.t}` with details about the parsing
   failure.
 
-  The `&fun/1` in the ok tuple can be applied to any struct as defined by
+  The `&fun/1` in the ok-tuple can be applied to any struct as defined by
   `module`, and will update it with the fields provided in the constructor
   input.
 
