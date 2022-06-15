@@ -40,7 +40,7 @@ defmodule Data.ConstructorTest do
       defstruct [:name, :spotted, :price]
 
       def fields do
-        [{:name, string()}, {:spotted, boolean()}, {:price, integer(), default: nil}]
+        [{:name, string()}, {:spotted, boolean()}, {:price, integer(), nullable: true}]
       end
 
       def new(params) do
@@ -65,7 +65,7 @@ defmodule Data.ConstructorTest do
       assert update.(p) == {:ok, %Pet{name: "Pooch", spotted: false, price: 1000}}
     end
 
-    test "an update can be applied using a field that defaults to nil" do
+    test "an update can be applied using a field that is nullable" do
       {:ok, p} = Pet.new(name: "Pooch", spotted: true, price: 1000)
       {:ok, update} = Constructor.update(Pet.fields(), Pet, price: nil)
 

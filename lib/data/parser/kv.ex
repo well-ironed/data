@@ -60,7 +60,31 @@ defmodule Data.Parser.KV do
   case, the output will contain the key-value pair: `country: "Canada"`
 
 
+  ### `{:country, MyApp.country_parser(), nullable: true}`
+
+
+  This spec says that the input *must* contain a `:country` field, and if so,
+  the value of that field must parse successfully with `MyApp.country_parser/0`
+  OR be equal to `nil`.
+
+  If the field exists and parses successfully, the output map will contain a
+  key-value pair such as: `country: "Indonesia"`.
+
+  If the field cannot be parsed successfully, the entire Constructor will return
+  `{:error, domain_error_with_details_on_parse_failure}`. However, if the value
+  of the field is `nil`, this is treated as a successful parse.
+
+  If the field does *not* exist, the parser will fail.
+
+  Note that a field spec specified as `nullable: true` cannot also contain
+  either the `optional: true` or `default: x` options.
+  This is an illegal spec and will not be constructed, resulting in
+  an `{:error, domain_error}` tuple, with `:invalid_field_spec` as the
+  error reason.
+
+
   ### `{:country, MyApp.country_parser(), from: :countryName}`
+
 
   This spec says that the parser will use the data from `:countryName` in the
   input map. If the value under this key satisfies the
@@ -106,7 +130,7 @@ defmodule Data.Parser.KV do
 
   defmodule Field do
     @moduledoc false
-    defstruct [:name, :from, :parser, :optional, :default, :recurse]
+    defstruct [:name, :from, :parser, :optional, :default, :recurse, :nullable]
   end
 
   @typedoc """
@@ -148,6 +172,7 @@ defmodule Data.Parser.KV do
             parser: Parser.t(a, b),
             optional: boolean(),
             default: Maybe.t(b),
+            nullable: boolean(),
             recurse: boolean()
           }
 
@@ -182,6 +207,27 @@ defmodule Data.Parser.KV do
       iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), optional: true}])
       ...> p.([])
       {:ok, %{a: :nothing}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), nullable: true}])
+      ...> {:error, e} = p.([])
+      ...> Error.reason(e)
+      :field_not_found_in_input
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), nullable: true}])
+      ...> p.([a: nil])
+      {:ok, %{a: nil}}
+
+      iex> {:ok, p} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), nullable: true}])
+      ...> p.([a: 1])
+      {:ok, %{a: 1}}
+
+      iex> {:error, e} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), nullable: true, default: nil}])
+      ...> Error.reason(e)
+      :invalid_field_spec
+
+      iex> {:error, e} = Data.Parser.KV.new([{:a, Data.Parser.BuiltIn.integer(), nullable: true, optional: true}])
+      ...> Error.reason(e)
+      :invalid_field_spec
 
       iex> {:ok, p} = Data.Parser.KV.new([{:b, Data.Parser.BuiltIn.integer(), default: 0}])
       ...> p.([])
@@ -293,9 +339,12 @@ defmodule Data.Parser.KV do
     parse_field_spec(spec, [])
     |> and_then(fn [%Field{} = f] ->
       new_parser =
-        case f.default do
-          {:just, default_val} -> union([f.parser, predicate(&(&1 == default_val))])
-          :nothing -> f.parser
+        case {f.default, f.nullable} do
+          {{:just, default_val}, false} ->
+            union([f.parser, predicate(&(&1 == default_val))])
+
+          {:nothing, _} ->
+            f.parser
         end
 
       nf = %Field{
@@ -335,14 +384,19 @@ defmodule Data.Parser.KV do
       parser: parser,
       optional: false,
       default: Maybe.nothing(),
-      recurse: false
+      recurse: false,
+      nullable: false
     }
 
     Result.ok([field | acc])
   end
 
   defp parse_field_spec({field_name, parser, opts} = spec, acc) do
+    import Data.Parser.BuiltIn, only: [null: 0]
+    import Data.Parser, only: [union: 1]
+
     optional = Keyword.get(opts, :optional, false)
+    nullable = Keyword.get(opts, :nullable, false)
     recurse = Keyword.get(opts, :recurse, false)
     from = Keyword.get(opts, :from, field_name)
 
@@ -352,18 +406,38 @@ defmodule Data.Parser.KV do
         :error -> Maybe.nothing()
       end
 
-    case {optional, default} do
-      {true, {:just, _}} ->
+    case {optional, default, nullable} do
+      {true, _, true} ->
         Error.domain(:invalid_field_spec, %{spec: spec}) |> Result.error()
 
-      {_, _} ->
+      {_, {:just, _}, true} ->
+        Error.domain(:invalid_field_spec, %{spec: spec}) |> Result.error()
+
+      {true, {:just, _}, _} ->
+        Error.domain(:invalid_field_spec, %{spec: spec}) |> Result.error()
+
+      {false, :nothing, true} ->
+        field = %Field{
+          name: field_name,
+          from: from,
+          parser: union([parser, null()]),
+          optional: optional,
+          default: default,
+          recurse: recurse,
+          nullable: nullable
+        }
+
+        Result.ok([field | acc])
+
+      {_, _, false} ->
         field = %Field{
           name: field_name,
           from: from,
           parser: parser,
           optional: optional,
           default: default,
-          recurse: recurse
+          recurse: recurse,
+          nullable: nullable
         }
 
         Result.ok([field | acc])
