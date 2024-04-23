@@ -150,8 +150,9 @@ defmodule Data.Parser.KV do
   This is a list that consists of zero or one of the below options:
   `{:optional, bool()}`
   `{:default, any}`
+  `{:from, field_name()}`
   """
-  @type field_opts(a) :: [{:optional, bool()} | {:default, a}]
+  @type field_opts(a) :: [{:optional, bool()} | {:default, a} | {:from, field_name()}]
 
   @typedoc """
   A 2-tuple or 3-tuple describing the field to parse and parsing semantics.
