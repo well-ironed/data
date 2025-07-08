@@ -326,6 +326,112 @@ defmodule Data.Parser do
 
   @doc """
 
+  Takes a key parser and a value parser and creates a parser that will
+  successfully parse maps where all keys satisfy the key parser and all
+  values satisfy the value parser.
+
+  Specifically, the input:
+
+  1) Must be a map
+
+  2) All keys of the input map must be parsed correctly by the key parser
+
+  3) All values of the input map must be parsed correctly by the value parser
+
+  If this is the case, the output will be `{:ok, map_of_parsed_keys_and_values}`.
+
+  If not all keys can be parsed with the key parser, the result will be the
+  original parse error, enriched with the field `:failed_key` in the error details.
+
+  If not all values can be parsed with the value parser, the result will be the
+  original parse error, enriched with the field `:failed_value` in the error details.
+
+  If the input is not a map, the domain error `:not_a_map` will be returned.
+
+  ## Examples
+
+      iex> Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{})
+      {:ok, %{}}
+
+      iex> Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{"a" => 1, "b" => 2})
+      {:ok, %{"a" => 1, "b" => 2}}
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).([])
+      ...> Error.reason(e)
+      :not_a_map
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{:a => 1})
+      ...> Error.reason(e)
+      :not_a_string
+      ...> Error.details(e)
+      %{failed_key: :a}
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{"a" => "not_int"})
+      ...> Error.reason(e)
+      :not_an_integer
+      ...> Error.details(e)
+      %{failed_value: "not_int"}
+
+  """
+  @spec map(t(a, Error.t()), t(b, Error.t())) :: t(%{a => b}, Error.t()) when a: var, b: var
+  def map(key_parser, value_parser) do
+    fn
+      input when is_map(input) ->
+        # Parse all keys first
+        key_result =
+          Enum.reduce_while(input, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
+            case key_parser.(key) do
+              {:ok, parsed_key} ->
+                {:cont, {:ok, Map.put(acc, parsed_key, value)}}
+
+              {:error, why} ->
+                enriched_error =
+                  case why do
+                    %Error.DomainError{} -> Error.map_details(why, &Map.put(&1, :failed_key, key))
+                    %Error.InfraError{} -> Error.map_details(why, &Map.put(&1, :failed_key, key))
+                    _ -> why
+                  end
+
+                {:halt, {:error, enriched_error}}
+            end
+          end)
+
+        case key_result do
+          {:ok, keys_parsed_map} ->
+            # Parse all values
+            Enum.reduce_while(keys_parsed_map, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
+              case value_parser.(value) do
+                {:ok, parsed_value} ->
+                  {:cont, {:ok, Map.put(acc, key, parsed_value)}}
+
+                {:error, why} ->
+                  enriched_error =
+                    case why do
+                      %Error.DomainError{} ->
+                        Error.map_details(why, &Map.put(&1, :failed_value, value))
+
+                      %Error.InfraError{} ->
+                        Error.map_details(why, &Map.put(&1, :failed_value, value))
+
+                      _ ->
+                        why
+                    end
+
+                  {:halt, {:error, enriched_error}}
+              end
+            end)
+
+          {:error, _} = error ->
+            error
+        end
+
+      _other ->
+        Error.domain(:not_a_map) |> Result.error()
+    end
+  end
+
+  @doc """
+
   Takes a list of parsers and creates a parser that returns the first
   successful parse result, or an error listing the parsers and the failed
   input.

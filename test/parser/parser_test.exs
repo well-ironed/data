@@ -295,6 +295,81 @@ defmodule Data.ParserTest do
     end
   end
 
+  describe "map/2" do
+    test "successfully parses empty map" do
+      parser = Parser.map(string(), integer())
+      assert parser.(%{}) == {:ok, %{}}
+    end
+
+    test "successfully parses map where all keys and values parse" do
+      parser = Parser.map(string(), integer())
+      assert parser.(%{"a" => 1, "b" => 2}) == {:ok, %{"a" => 1, "b" => 2}}
+    end
+
+    test "successfully parses map with mixed valid key and value types" do
+      parser =
+        Parser.map(Parser.union([string(), integer()]), Parser.union([string(), boolean()]))
+
+      input = %{"str_key" => "str_val", 1 => true, "key2" => false, 2 => "val2"}
+      assert {:ok, result} = parser.(input)
+      assert result == input
+    end
+
+    test "returns error when input is not a map" do
+      parser = Parser.map(string(), integer())
+
+      assert {:error, error} = parser.([])
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_map
+
+      assert {:error, error} = parser.("not a map")
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_map
+
+      assert {:error, error} = parser.(42)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_map
+
+      assert {:error, error} = parser.(:atom)
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_map
+    end
+
+    test "returns error when at least one key doesn't parse" do
+      parser = Parser.map(string(), integer())
+      assert {:error, error} = parser.(%{:atom_key => 1, "string_key" => 2})
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_a_string
+      assert %{failed_key: :atom_key} = Error.details(error)
+    end
+
+    test "returns error when at least one value doesn't parse" do
+      parser = Parser.map(string(), integer())
+      assert {:error, error} = parser.(%{"key1" => 1, "key2" => "not_integer"})
+      assert Error.kind(error) == :domain
+      assert Error.reason(error) == :not_an_integer
+      assert %{failed_value: "not_integer"} = Error.details(error)
+    end
+
+    test "successfully parses nested maps" do
+      inner_parser = Parser.map(string(), integer())
+      outer_parser = Parser.map(string(), inner_parser)
+
+      input = %{"outer" => %{"inner" => 42}}
+      assert outer_parser.(input) == {:ok, %{"outer" => %{"inner" => 42}}}
+    end
+
+    test "handles map with duplicate parsed keys correctly" do
+      downcase_parser = fn str -> {:ok, String.downcase(str)} end
+      parser = Parser.map(downcase_parser, integer())
+
+      input = %{"hello" => 1, "HELLO" => 2}
+      assert {:ok, result} = parser.(input)
+      assert %{"hello" => value} = result
+      assert value in [1, 2]
+    end
+  end
+
   describe "kv/1 bad input" do
     test "a kv run on an atom returns invalid input error" do
       {:ok, kv} = Parser.kv([{:age, integer()}])
