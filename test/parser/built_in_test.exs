@@ -152,7 +152,7 @@ defmodule Data.Parser.BuiltInTest do
     end
 
     test "returns error if something other is passed" do
-      assert {:error, error} = naive_datetime().('123')
+      assert {:error, error} = naive_datetime().(~c"123")
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :not_a_naive_datetime
     end

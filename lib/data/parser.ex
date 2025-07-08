@@ -31,11 +31,11 @@ defmodule Data.Parser do
 
 
   ## Examples
-      iex> {:error, e} = Data.Parser.predicate(&is_binary/1).('charlists are not ok')
+      iex> {:error, e} = Data.Parser.predicate(&is_binary/1).(~c"charlists are not ok")
       ...> e.reason
       :predicate_not_satisfied
       ...> e.details
-      %{input: 'charlists are not ok', predicate: &is_binary/1}
+      %{input: ~c"charlists are not ok", predicate: &is_binary/1}
 
       iex> Data.Parser.predicate(&is_binary/1).("this is fine")
       {:ok, "this is fine"}
@@ -82,7 +82,7 @@ defmodule Data.Parser do
 
 
   ## Examples
-      iex> Data.Parser.predicate(&is_binary/1, "invalid string").('charlists are not ok')
+      iex> Data.Parser.predicate(&is_binary/1, "invalid string").(~c"charlists are not ok")
       {:error, "invalid string"}
 
       iex> Data.Parser.predicate(&is_binary/1, "invalid string").(<<0::1, 1::2>>)
@@ -284,7 +284,7 @@ defmodule Data.Parser do
 
   @doc """
 
-  Takes a parser and transforms it so that it works 'inside' `Maybe.t` values.
+  Takes a parser and transforms it so that it works ~c"inside" `Maybe.t` values.
 
   If the original parser works on `String.t()`, the new one will work on
   `Maybe.t(String.t())`.
@@ -301,7 +301,7 @@ defmodule Data.Parser do
       {:ok, {:just, "good"}}
 
       iex> Data.Parser.maybe(
-      ...> Data.Parser.predicate( &is_binary/1, :invalid)).({:just, 'bad'})
+      ...> Data.Parser.predicate( &is_binary/1, :invalid)).({:just, ~c"bad"})
       {:error, :invalid}
 
       iex> Data.Parser.maybe(
