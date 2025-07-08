@@ -339,16 +339,20 @@ defmodule Data.ParserTest do
       parser = Parser.map(string(), integer())
       assert {:error, error} = parser.(%{:atom_key => 1, "string_key" => 2})
       assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_a_string
-      assert %{failed_key: :atom_key} = Error.details(error)
+      assert Error.reason(error) == :failed_to_parse_key
+      assert Error.details(error) == %{key: :atom_key}
+      {:just, key_error} = Error.caused_by(error)
+      assert Error.reason(key_error) == :not_a_string
     end
 
     test "returns error when at least one value doesn't parse" do
       parser = Parser.map(string(), integer())
       assert {:error, error} = parser.(%{"key1" => 1, "key2" => "not_integer"})
       assert Error.kind(error) == :domain
-      assert Error.reason(error) == :not_an_integer
-      assert %{failed_value: "not_integer"} = Error.details(error)
+      assert Error.reason(error) == :failed_to_parse_value
+      assert Error.details(error) == %{value: "not_integer"}
+      {:just, value_error} = Error.caused_by(error)
+      assert Error.reason(value_error) == :not_an_integer
     end
 
     test "successfully parses nested maps" do

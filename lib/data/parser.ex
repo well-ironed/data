@@ -325,10 +325,8 @@ defmodule Data.Parser do
   end
 
   @doc """
-
   Takes a key parser and a value parser and creates a parser that will
-  successfully parse maps where all keys satisfy the key parser and all
-  values satisfy the value parser.
+  parse maps of keys and values.
 
   Specifically, the input:
 
@@ -377,47 +375,28 @@ defmodule Data.Parser do
   def map(key_parser, value_parser) do
     fn
       input when is_map(input) ->
-        # Parse all keys first
         key_result =
           Enum.reduce_while(input, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
             case key_parser.(key) do
               {:ok, parsed_key} ->
                 {:cont, {:ok, Map.put(acc, parsed_key, value)}}
 
-              {:error, why} ->
-                enriched_error =
-                  case why do
-                    %Error.DomainError{} -> Error.map_details(why, &Map.put(&1, :failed_key, key))
-                    %Error.InfraError{} -> Error.map_details(why, &Map.put(&1, :failed_key, key))
-                    _ -> why
-                  end
-
-                {:halt, {:error, enriched_error}}
+              {:error, inner_error} ->
+                error = Error.domain(:failed_to_parse_key, %{key: key})
+                {:halt, {:error, Error.wrap(inner_error, error)}}
             end
           end)
 
         case key_result do
           {:ok, keys_parsed_map} ->
-            # Parse all values
             Enum.reduce_while(keys_parsed_map, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
               case value_parser.(value) do
                 {:ok, parsed_value} ->
                   {:cont, {:ok, Map.put(acc, key, parsed_value)}}
 
-                {:error, why} ->
-                  enriched_error =
-                    case why do
-                      %Error.DomainError{} ->
-                        Error.map_details(why, &Map.put(&1, :failed_value, value))
-
-                      %Error.InfraError{} ->
-                        Error.map_details(why, &Map.put(&1, :failed_value, value))
-
-                      _ ->
-                        why
-                    end
-
-                  {:halt, {:error, enriched_error}}
+                {:error, inner_error} ->
+                  error = Error.domain(:failed_to_parse_value, %{value: value})
+                  {:halt, {:error, Error.wrap(inner_error, error)}}
               end
             end)
 
