@@ -368,41 +368,36 @@ defmodule Data.Parser do
       ...> Error.reason(e)
       :failed_to_parse_value
       ...> Error.details(e)
-      %{value: "not_int"}
+      %{key: "a", value: "not_int"}
 
   """
   @spec map(t(a, Error.t()), t(b, Error.t())) :: t(%{a => b}, Error.t()) when a: var, b: var
   def map(key_parser, value_parser) do
     fn
       input when is_map(input) ->
-        key_result =
-          Enum.reduce_while(input, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
-            case key_parser.(key) do
-              {:ok, parsed_key} ->
-                {:cont, {:ok, Map.put(acc, parsed_key, value)}}
-
-              {:error, inner_error} ->
-                error = Error.domain(:failed_to_parse_key, %{key: key})
-                {:halt, {:error, Error.wrap(inner_error, error)}}
-            end
-          end)
-
-        case key_result do
-          {:ok, keys_parsed_map} ->
-            Enum.reduce_while(keys_parsed_map, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
+        Result.fold(Result.ok(%{}), input, fn {key, value}, acc ->
+          case key_parser.(key) do
+            {:ok, parsed_key} ->
               case value_parser.(value) do
                 {:ok, parsed_value} ->
-                  {:cont, {:ok, Map.put(acc, key, parsed_value)}}
+                  Result.ok(Map.put(acc, parsed_key, parsed_value))
 
                 {:error, inner_error} ->
-                  error = Error.domain(:failed_to_parse_value, %{value: value})
-                  {:halt, {:error, Error.wrap(inner_error, error)}}
-              end
-            end)
+                  error = Error.domain(:failed_to_parse_value, %{key: key, value: value})
 
-          {:error, _} = error ->
-            error
-        end
+                  inner_error
+                  |> Error.wrap(error)
+                  |> Result.error()
+              end
+
+            {:error, inner_error} ->
+              error = Error.domain(:failed_to_parse_key, %{key: key})
+
+              inner_error
+              |> Error.wrap(error)
+              |> Result.error()
+          end
+        end)
 
       _other ->
         Error.domain(:not_a_map) |> Result.error()

@@ -350,7 +350,7 @@ defmodule Data.ParserTest do
       assert {:error, error} = parser.(%{"key1" => 1, "key2" => "not_integer"})
       assert Error.kind(error) == :domain
       assert Error.reason(error) == :failed_to_parse_value
-      assert Error.details(error) == %{value: "not_integer"}
+      assert Error.details(error) == %{key: "key2", value: "not_integer"}
       {:just, value_error} = Error.caused_by(error)
       assert Error.reason(value_error) == :not_an_integer
     end
