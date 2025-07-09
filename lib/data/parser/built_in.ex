@@ -95,7 +95,7 @@ defmodule Data.Parser.BuiltIn do
       iex> Data.Parser.BuiltIn.string().("hi")
       {:ok, "hi"}
 
-      iex> {:error, e} = Data.Parser.BuiltIn.string().('hi')
+      iex> {:error, e} = Data.Parser.BuiltIn.string().(~c"hi")
       ...> Error.reason(e)
       :not_a_string
 

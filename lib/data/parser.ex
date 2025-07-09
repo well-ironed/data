@@ -31,13 +31,13 @@ defmodule Data.Parser do
 
 
   ## Examples
-      iex> {:error, e} = Data.Parser.predicate(&String.valid?/1).('charlists are not ok')
+      iex> {:error, e} = Data.Parser.predicate(&is_binary/1).(~c"charlists are not ok")
       ...> e.reason
       :predicate_not_satisfied
       ...> e.details
-      %{input: 'charlists are not ok', predicate: &String.valid?/1}
+      %{input: ~c"charlists are not ok", predicate: &is_binary/1}
 
-      iex> Data.Parser.predicate(&String.valid?/1).("this is fine")
+      iex> Data.Parser.predicate(&is_binary/1).("this is fine")
       {:ok, "this is fine"}
 
       iex> Data.Parser.predicate(&(&1<10)).(5)
@@ -82,16 +82,16 @@ defmodule Data.Parser do
 
 
   ## Examples
-      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").('charlists are not ok')
+      iex> Data.Parser.predicate(&is_binary/1, "invalid string").(~c"charlists are not ok")
       {:error, "invalid string"}
 
-      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").(<<"neither are invalid utf sequences", 99999>>)
+      iex> Data.Parser.predicate(&is_binary/1, "invalid string").(<<0::1, 1::2>>)
       {:error, "invalid string"}
 
-      iex> Data.Parser.predicate(&String.valid?/1, "invalid string").("this is fine")
+      iex> Data.Parser.predicate(&is_binary/1, "invalid string").("this is fine")
       {:ok, "this is fine"}
 
-      iex> Data.Parser.predicate(&String.valid?/1, fn x -> "the bad value is: #\{inspect x}" end).(12345)
+      iex> Data.Parser.predicate(&is_binary/1, fn x -> "the bad value is: #\{inspect x}" end).(12345)
       {:error, "the bad value is: 12345"}
 
   """
@@ -250,11 +250,11 @@ defmodule Data.Parser do
 
       iex> {:ok, s} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new())
       ...> s
-      #MapSet<[]>
+      MapSet.new([])
 
       iex> {:ok, s} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(MapSet.new([1,2,3]))
       ...> s
-      #MapSet<[1, 2, 3]>
+      MapSet.new([1, 2, 3])
 
       iex> {:error, e} = Data.Parser.set(Data.Parser.BuiltIn.integer()).(%{a: :b})
       ...> Error.reason(e)
@@ -284,7 +284,7 @@ defmodule Data.Parser do
 
   @doc """
 
-  Takes a parser and transforms it so that it works 'inside' `Maybe.t` values.
+  Takes a parser and transforms it so that it works ~c"inside" `Maybe.t` values.
 
   If the original parser works on `String.t()`, the new one will work on
   `Maybe.t(String.t())`.
@@ -297,15 +297,15 @@ defmodule Data.Parser do
   ## Examples
 
       iex(2)> Data.Parser.maybe(
-      ...> Data.Parser.predicate( &String.valid?/1, :invalid)).({:just, "good"})
+      ...> Data.Parser.predicate( &is_binary/1, :invalid)).({:just, "good"})
       {:ok, {:just, "good"}}
 
       iex> Data.Parser.maybe(
-      ...> Data.Parser.predicate( &String.valid?/1, :invalid)).({:just, 'bad'})
+      ...> Data.Parser.predicate( &is_binary/1, :invalid)).({:just, ~c"bad"})
       {:error, :invalid}
 
       iex> Data.Parser.maybe(
-      ...> Data.Parser.predicate( &String.valid?/1, :invalid)).(:nothing)
+      ...> Data.Parser.predicate( &is_binary/1, :invalid)).(:nothing)
       {:ok, :nothing}
 
   """
@@ -321,6 +321,86 @@ defmodule Data.Parser do
 
       :nothing ->
         ok(nothing())
+    end
+  end
+
+  @doc """
+  Takes a key parser and a value parser and creates a parser that will
+  parse maps of keys and values.
+
+  Specifically, the input:
+
+  1) Must be a map
+
+  2) All keys of the input map must be parsed correctly by the key parser
+
+  3) All values of the input map must be parsed correctly by the value parser
+
+  If this is the case, the output will be `{:ok, map_of_parsed_keys_and_values}`.
+
+  If not all keys can be parsed with the key parser, the result will be the
+  original parse error, enriched with the field `:failed_key` in the error details.
+
+  If not all values can be parsed with the value parser, the result will be the
+  original parse error, enriched with the field `:failed_value` in the error details.
+
+  If the input is not a map, the domain error `:not_a_map` will be returned.
+
+  ## Examples
+
+      iex> Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{})
+      {:ok, %{}}
+
+      iex> Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{"a" => 1, "b" => 2})
+      {:ok, %{"a" => 1, "b" => 2}}
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).([])
+      ...> Error.reason(e)
+      :not_a_map
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{:a => 1})
+      ...> Error.reason(e)
+      :failed_to_parse_key
+      ...> Error.details(e)
+      %{key: :a}
+
+      iex> {:error, e} = Data.Parser.map(Data.Parser.BuiltIn.string(), Data.Parser.BuiltIn.integer()).(%{"a" => "not_int"})
+      ...> Error.reason(e)
+      :failed_to_parse_value
+      ...> Error.details(e)
+      %{key: "a", value: "not_int"}
+
+  """
+  @spec map(t(a, Error.t()), t(b, Error.t())) :: t(%{a => b}, Error.t()) when a: var, b: var
+  def map(key_parser, value_parser) do
+    fn
+      input when is_map(input) ->
+        Result.fold(Result.ok(%{}), input, fn {key, value}, acc ->
+          case key_parser.(key) do
+            {:ok, parsed_key} ->
+              case value_parser.(value) do
+                {:ok, parsed_value} ->
+                  Result.ok(Map.put(acc, parsed_key, parsed_value))
+
+                {:error, inner_error} ->
+                  error = Error.domain(:failed_to_parse_value, %{key: key, value: value})
+
+                  inner_error
+                  |> Error.wrap(error)
+                  |> Result.error()
+              end
+
+            {:error, inner_error} ->
+              error = Error.domain(:failed_to_parse_key, %{key: key})
+
+              inner_error
+              |> Error.wrap(error)
+              |> Result.error()
+          end
+        end)
+
+      _other ->
+        Error.domain(:not_a_map) |> Result.error()
     end
   end
 
