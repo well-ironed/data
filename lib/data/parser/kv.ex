@@ -162,7 +162,7 @@ defmodule Data.Parser.KV do
 
   """
   @type field_spec(a, b) ::
-          {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(b)}
+          {field_name(), Parser.t(a, b)} | {field_name(), Parser.t(a, b), field_opts(a)}
 
   @typedoc """
   A structure representing a `Data.Parser.t(a,b)` lifted to operate on a KV.
@@ -172,7 +172,7 @@ defmodule Data.Parser.KV do
             from: field_name(),
             parser: Parser.t(a, b),
             optional: boolean(),
-            default: Maybe.t(b),
+            default: Maybe.t(a),
             nullable: boolean(),
             recurse: boolean()
           }
