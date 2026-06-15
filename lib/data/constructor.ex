@@ -6,7 +6,7 @@ defmodule Data.Constructor do
   Define and run a smart constructor on a Key-Value input, returning either
   well-defined `structs` or descriptive errors. The motto: parse, don't validate!
 
-  Given a list of `Data.Parser.KV.field_spec/2`s, a `module`, and an input
+  Given a list of `t:Data.Parser.KV.field_spec/2`s, a `module`, and an input
   `map` or `Keyword`, create and run a parser which will either parse
   successfully and return an `{:ok, %__MODULE__{}}` struct, or fail and return
   an `{:error, Error.t}` with details about the parsing failure.
@@ -56,7 +56,7 @@ defmodule Data.Constructor do
   the struct type to be updated, and a `Keyword` or `map` of input params.
 
 
-  Given a list of `Data.Parser.KV.field_spec/2`s, a `module` (which defines a
+  Given a list of `t:Data.Parser.KV.field_spec/2`s, a `module` (which defines a
   struct), and an input `map` or `Keyword`, create an `{:ok, &fun/1}` tuple,
   or fail and return an `{:error, Error.t}` with details about the parsing
   failure.
@@ -66,7 +66,7 @@ defmodule Data.Constructor do
   input.
 
   The crucial advantage here is that the input parameters are validated
-  according to the provided `Data.Parser.KV.field_spec/2`s, so that using the
+  according to the provided `t:Data.Parser.KV.field_spec/2`s, so that using the
   same list of field_specs for `new/3` and `update/3` will result in
   correct-by-construction data both from construction and after updates.
 
